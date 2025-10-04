@@ -1,45 +1,64 @@
-# Tubes Mobile (Nama Aplikasi)
+# Lembar.
+Tautan menuju repositori backend [di sini](https://github.com/refaelsiagian/Tubes-Mobile-Backend)
 
-Tautan menuju repositori backend (di sini)[https://github.com/refaelsiagian/Tubes-Mobile-Backend]
 ## Anggota Kelompok
-- Adelia Amanda (2314020__)
-- Angelin Viona Lumban Tobing (2314020__)
-- Gabriel Arthur Nababan (2314020__)
-- Victor Rolas Ganda Samosir (2314020__)
-- Yuna Dhuha Shabrina (2314020__)
-- Refael Juari Siagian (231402055)
+- Adelia Amanda (2314020__) <br>
+  _Front-end UI_
+- Angelin Viona Lumban Tobing (231402083) <br>
+  _Front-end UI_
+- Gabriel Arthur Nababan (231402115) <br>
+  _Front-end Logic_
+- Victor Rolas Ganda Samosir (231402073) <br>
+  _Front-end Logic_
+- Yuna Dhuha Shabrina (231402007) <br>
+  _Back-end_
+- Refael Juari Siagian (231402055) <br>
+  _Back-end & **Project Manager**_
 
 ## Deskripsi
-Aplikasi ini adalah platform blog mobile yang menggabungkan menulis, membaca, dan interaksi sosial dalam satu tempat. Pengguna bisa membuat post, menyusunnya menjadi serial seperti episode, serta berinteraksi lewat like, komentar, dan follow. Post dapat disimpan ke folder bookmark pribadi sehingga bacaan favorit lebih mudah dikelola. Dengan adanya notifikasi dan halaman profil, aplikasi ini tidak hanya menjadi wadah menulis, tapi juga membangun komunitas dan koneksi antar pengguna.
+Selamat datang di **Lembar.**, sebuah platform blog berbasis seluler tempat setiap gagasan bisa dituangkan menjadi sebuah **Lembar** tulisan yang bermakna. Anda bahkan bisa merangkai beberapa Lembar yang saling terkait menjadi sebuah **Jilid** untuk menciptakan cerita bersambung yang utuh. Jalin interaksi dalam komunitas dengan memberikan **Suka** pada karya favorit, memulai diskusi lewat **Komentar**, dan **Ikuti** perjalanan penulis inspiratif lainnya. Jangan lupa simpan semua bacaan penting ke dalam koleksi **Markah** pribadi Anda untuk dibaca kembali kapan saja.
 
 ## Fitur
 
 ### Autentikasi & Profil
-- Pengguna bisa sign up dan login untuk membuat akun.
+- Pengguna bisa daftar untuk membuat akun dan masuk ke akun mereka.
 - Profil memiliki halaman About untuk menampilkan bio dan avatar.
-- Setiap profil menampilkan daftar post milik user.
-- Pengguna bisa follow/unfollow akun lain untuk mengikuti update mereka.
+- Setiap profil menampilkan daftar Lembar milik user.
+- Pengguna bisa mengikuti/berhenti ikuti akun lain.
 
-### Manajemen Post
-- Membuat post blog baru.
-- Menyimpan post dalam status draft sebelum dipublikasikan.
-- Mengedit dan menghapus post yang sudah ada.
+### Manajemen Lembar (Post)
+- Membuat Lembar baru.
+- Menyimpan Lembar dalam status draf sebelum dipublikasikan.
+- Mengedit dan menghapus Lembar yang sudah ada.
 
-### Interaksi dengan Post
-- Memberikan like pada post, serta menghapus like.
+### Interaksi dengan Lembar
+- Memberikan Suka pada Lembar, serta menghapus Suka.
 - Memberikan komentar dan menghapus komentar.
-- Menyimpan post ke dalam bookmark, dengan fleksibilitas:
-- - Membuat folder bookmark.
-- - Menghapus folder bookmark.
-- - Mengatur post ke folder tertentu.
+- Menyimpan Lembar ke dalam Markah, dengan fleksibilitas:
+  - Membuat koleksi Markah.
+  - Menghapus koleksi Markah.
+  - Mengatur Lembar ke koleksi tertentu.
 
-### Series (Serial Blog)
-- Pengguna dapat membuat serial blog (series).
-- Beberapa post bisa digabungkan dalam satu series.
-- Post dalam series dapat diurutkan seperti episode.
+### Jilid (Serial Blog)
+- Pengguna dapat membuat Jilid.
+- Beberapa Lembar bisa digabungkan dalam satu Jilid.
+- Lembar dalam Jilid dapat diurutkan seperti layaknya bab dalam buku.
 
 ### Koleksi & Aktivitas
 - Pengguna dapat melihat:
-- - Post yang pernah mereka like.
-- - Post yang pernah mereka bookmark.
+  - Lembar yang pernah mereka Suka.
+  - Lembar yang pernah mereka Markah.
  
+## Kebutuhan Instalasi
+
+### JDK
+
+Versi ___
+
+### Android
+
+Versi ___
+
+### Flutter
+
+Versi ___
