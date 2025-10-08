@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-
 class LoginPage extends StatelessWidget {
-  final VoidCallback? onRegisterTap;
+  final VoidCallback onRegisterTap;
   final VoidCallback onForgotTap;
-  
   const LoginPage({
     super.key,
-    this.onRegisterTap, // jadi opsional
+    required this.onRegisterTap,
     required this.onForgotTap,
   });
   @override

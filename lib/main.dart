@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/logo_page.dart';
 import 'screens/login_page.dart';
+import 'screens/register_page.dart';
 void main() {
   runApp(const MyApp());
 }
 // Enum untuk mengelola state halaman mana yang sedang aktif
 enum AuthPage { 
   logo, 
-  login
+  login, 
+  register 
 }
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -56,12 +58,18 @@ class _PageControllerWidgetState extends State<PageControllerWidget> {
         break;
       case AuthPage.login:
         activePage = LoginPage(
-          // onRegisterTap: () => _navigateTo(AuthPage.register),
+          onRegisterTap: () => _navigateTo(AuthPage.register),
           onForgotTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Halaman Lupa Sandi Belum Dibuat!')),
             );
           },
+        );
+        break;
+      case AuthPage.register:
+        activePage = RegisterPage(
+          // Pindah kembali ke Login saat tombol 'Masuk.' di klik
+          onLoginTap: () => _navigateTo(AuthPage.login),
         );
         break;
     }
