@@ -2,7 +2,7 @@
 Tautan menuju repositori backend [di sini](https://github.com/refaelsiagian/Tubes-Mobile-Backend)
 
 ## Anggota Kelompok
-- Adelia Amanda (2314020__) <br>
+- Adelia Amanda (231402004) <br>
   _Front-end UI_
 - Angelin Viona Lumban Tobing (231402083) <br>
   _Front-end UI_
@@ -53,12 +53,13 @@ Selamat datang di **Lembar.**, sebuah platform blog berbasis seluler tempat seti
 
 ### JDK
 
-Versi ___
+Versi javac 22.0.2
 
 ### Android
 
-Versi ___
+Versi Platform Android 16 (API 36)
 
 ### Flutter
 
-Versi ___
+Versi 3.35.4
+
