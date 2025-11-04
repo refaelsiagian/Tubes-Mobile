@@ -7,25 +7,24 @@ class LogoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
       backgroundColor: _kPurpleColor,
       body: Center(
-        child: Column(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
-            Icon(
-              Icons.article, 
-              size: 50.0,
-              color: Colors.white,
+            Image.asset(
+              'assets/images/logo1.png',
+              width: 50.0,
+              height: 50.0,
             ),
-            SizedBox(width: 8), 
+            const SizedBox(width: 8),
             Text(
               'Lembar.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-              ),
+              style: textTheme.headlineLarge,
             ),
           ],
         ),
