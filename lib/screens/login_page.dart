@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'home_page.dart';
+
+const Color _kPurpleColor = Color(0xFF673AB7);
+const Color _kTextColor = Color(0xFF333333);
+
 class LoginPage extends StatelessWidget {
   final VoidCallback onRegisterTap;
   final VoidCallback onForgotTap;
@@ -10,6 +15,8 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color primaryColor = Theme.of(context).colorScheme.primary;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40.0),
@@ -20,76 +27,33 @@ class LoginPage extends StatelessWidget {
             // Logo dan Teks 'Lembar.'
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/images/logo1.png', 
-                  width: 42, 
-                  height: 42, 
-                ),
+                Image.asset('assets/images/logo1.png', width: 42, height: 42),
                 const SizedBox(width: 8),
-                Text(
-                  'Lembar.',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+                Text('Lembar.', style: textTheme.headlineLarge),
               ],
             ),
             const SizedBox(height: 50),
             // Judul
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Masuk',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-            ),
+            Text('Masuk', style: textTheme.headlineLarge),
             const SizedBox(height: 20),
             // Input Email
-            const TextField(
+            _buildTextField(
+              label: 'Email',
+              hint: 'Masukkan email valid',
+              context: context,
               keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: 'Masukkan email valid',
-                contentPadding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
-                  borderSide: BorderSide(color: Color(0xFF673AB7), width: 2.0),
-                ),
-              ),
             ),
             const SizedBox(height: 20),
             // Input Kata Sandi
-            const TextField(
-              obscureText: true,
-              decoration: InputDecoration(
-                hintText: 'Masukkan kata sandi',
-                contentPadding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
-                  borderSide: BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(50.0)),
-                  borderSide: BorderSide(color: Color(0xFF673AB7), width: 2.0),
-                ),
-              ),
+            _buildTextField(
+              label: 'Kata sandi',
+              hint: 'Masukkan sandi',
+              context: context,
+              isPassword: true,
             ),
-            const SizedBox(height: 10),
-            // Lupa Kata Sandi
+            const SizedBox(height: 20),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -101,45 +65,22 @@ class LoginPage extends StatelessWidget {
                 ),
                 child: Text(
                   'Lupa kata sandi?',
-                  style: TextStyle(color: primaryColor),
+                  style: textTheme.labelLarge?.copyWith(
+                    color: primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 30),
             // Tombol Masuk (Gradient)
-            Container(
-              width: double.infinity,
-              height: 50,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(50.0),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF673AB7), // Ungu
-                    Color(0xFF9C27B0), // Magenta
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Proses Masuk...')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50.0),
-                  ),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text(
-                  'Masuk',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
+            _buildGradientButton(
+              text: 'Masuk',
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
+              },
             ),
             const SizedBox(height: 50),
             // Belum Punya Akun? Daftar.
@@ -160,6 +101,88 @@ class LoginPage extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required String hint,
+    required BuildContext context,
+    TextInputType keyboardType = TextInputType.text,
+    bool isPassword = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 6),
+        TextField(
+          keyboardType: keyboardType,
+          obscureText: isPassword,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: _kTextColor),
+          decoration: InputDecoration(
+            hintText: hint,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 8.0,
+              horizontal: 20.0,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: const BorderSide(
+                color: Color(0xFFDDDDDD),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: const BorderSide(color: _kPurpleColor, width: 1.5),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: const BorderSide(
+                color: Color(0xFFDDDDDD),
+                width: 1.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGradientButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(50.0),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF8D07C6), Color(0xFFDD01BE)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50.0),
+          ),
+          foregroundColor: Colors.white,
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
     );
