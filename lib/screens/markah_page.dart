@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
-import 'blog_page.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../utils/navigation_helper.dart';
+import 'blog_page.dart';
 
 const Color _kTextColor = Color(0xFF333333);
-const Color _kPurpleColor = Color(0xFF8D07C6); // Warna aksen ungu baru
+const Color _kPurpleColor = Color(0xFF8D07C6);
 const Color _kBackgroundColor = Color(0xFFFFFFFF);
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class MarkahPage extends StatefulWidget {
+  const MarkahPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<MarkahPage> createState() => _MarkahPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _MarkahPageState extends State<MarkahPage> {
+  static const int _currentNavIndex = 2; // Markah page index
+
   // State untuk like dan bookmark per blog
   final Map<int, bool> _likedBlogs = {};
   final Map<int, bool> _bookmarkedBlogs = {};
-  bool _isNotificationClicked = false; // State untuk notifikasi
-  static const int _currentNavIndex = 0; // Home page index
 
-  // Sample blog data
-  final List<Map<String, dynamic>> _blogs = [
+  // Sample bookmarked blogs data
+  final List<Map<String, dynamic>> _bookmarkedBlogsList = [
     {
       'authorName': 'John Doe',
       'authorInitials': 'JD',
@@ -34,21 +34,10 @@ class _HomePageState extends State<HomePage> {
       'comments': '14',
     },
     {
-      'authorName': 'John Doe',
-      'authorInitials': 'JD',
-      'title': 'Lorem ipsum',
-      'snippet': 'Lorem ipsum dolor sit amet...',
-      'thumbnail': null,
-      'date': 'Jul 28',
-      'likes': '17K',
-      'comments': '683',
-      'verified': true,
-    },
-    {
-      'authorName': 'John Doe',
-      'authorInitials': 'JD',
-      'title': 'Lorem ipsum',
-      'snippet': 'Lorem ipsum dolor sit amet...',
+      'authorName': 'Jane Smith',
+      'authorInitials': 'JS',
+      'title': 'Dolor sit amet',
+      'snippet': 'Consectetur adipiscing elit...',
       'thumbnail': null,
       'date': '3d ago',
       'likes': '892',
@@ -64,8 +53,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme.of(context).colorScheme.primary;
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final Color primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
@@ -87,69 +76,46 @@ class _HomePageState extends State<HomePage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20.0,
-                  vertical: 10.0, // Dikurangi dari 16.0
+                  vertical: 10.0,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Logo Lembar
-                    Row(
-                      children: [
-                        Image.asset(
-                          'assets/images/logo1.png',
-                          width: 24, // Dikurangi dari 32
-                          height: 24, // Dikurangi dari 32
-                        ),
-                        const SizedBox(width: 6), // Dikurangi dari 8
-                        Text(
-                          'Lembar.',
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontSize: 18, // Diperkecil
-                          ),
-                        ),
-                      ],
-                    ),
-                    // Notification Icon - transparan, warna berubah saat diklik
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () {
-                          setState(() {
-                            _isNotificationClicked = !_isNotificationClicked;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.notifications_outlined,
-                            color: _isNotificationClicked
-                                ? _kPurpleColor
-                                : _kTextColor,
-                            size: 22,
-                          ),
-                        ),
-                      ),
+                    Text(
+                      'Markah',
+                      style: textTheme.headlineMedium?.copyWith(fontSize: 18),
                     ),
                   ],
                 ),
               ),
             ),
-            // Blog Feed
+            // Bookmarked Blogs
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 16.0,
-                ),
-                itemCount: _blogs.length,
-                itemBuilder: (context, index) {
-                  final blog = _blogs[index];
-                  return _buildBlogCard(blog, textTheme, primaryColor);
-                },
-              ),
+              child: _bookmarkedBlogsList.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No bookmarked blogs yet',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                        vertical: 16.0,
+                      ),
+                      itemCount: _bookmarkedBlogsList.length,
+                      itemBuilder: (context, index) {
+                        final blog = _bookmarkedBlogsList[index];
+                        return _buildBlogCard(
+                          blog,
+                          textTheme,
+                          primaryColor,
+                          index,
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -158,14 +124,223 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _currentNavIndex,
         onTap: _onItemTapped,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navigate to create blog page
-        },
-        backgroundColor: _kPurpleColor,
-        shape: const CircleBorder(), // Pastikan bulat
-        child: const Icon(Icons.edit, color: Colors.white),
-      ),
+    );
+  }
+
+  Widget _buildBlogCard(
+    Map<String, dynamic> blog,
+    TextTheme textTheme,
+    Color primaryColor,
+    int index,
+  ) {
+    final isLiked = _likedBlogs[index] ?? false;
+    final isBookmarked =
+        _bookmarkedBlogs[index] ?? true; // Bookmarked by default
+
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => BlogPage(blog: blog)),
+              );
+            },
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Main Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Author Info
+                        Row(
+                          children: [
+                            // Author Avatar
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.grey[300],
+                              child: Text(
+                                blog['authorInitials'] as String,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: _kTextColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Author Name
+                            Flexible(
+                              child: Text(
+                                blog['authorName'] as String,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Title
+                        Text(
+                          blog['title'] as String,
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: _kTextColor,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        // Snippet
+                        Text(
+                          blog['snippet'] as String,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        // Engagement Stats
+                        Row(
+                          children: [
+                            // Left side: stats
+                            Flexible(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    blog['date'] as String,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Like icon
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _likedBlogs[index] = !isLiked;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        isLiked
+                                            ? Icons.thumb_up
+                                            : Icons.thumb_up_outlined,
+                                        size: 16,
+                                        color: isLiked
+                                            ? _kPurpleColor
+                                            : Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    blog['likes'] as String,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Icon(
+                                    Icons.comment_outlined,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    blog['comments'] as String,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Right side: action buttons
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Bookmark Button
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _bookmarkedBlogs[index] = !isBookmarked;
+                                    });
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      isBookmarked
+                                          ? Icons.bookmark
+                                          : Icons.bookmark_border,
+                                      size: 20,
+                                      color: isBookmarked
+                                          ? _kPurpleColor
+                                          : Colors.grey[600],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                // More Options Button
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    onTap: () => _showBlogMenu(context, blog),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: const Icon(
+                                        Icons.more_vert,
+                                        size: 20,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Right Side - Thumbnail
+                  Container(
+                    width: 80,
+                    height: 80,
+                    margin: const EdgeInsets.only(left: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: blog['thumbnail'] != null
+                        ? Image.network(
+                            blog['thumbnail'] as String,
+                            fit: BoxFit.cover,
+                          )
+                        : const SizedBox(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Divider antar card
+        const Divider(height: 1, thickness: 1, color: Color(0xFFDDDDDD)),
+      ],
     );
   }
 
@@ -178,7 +353,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 12), // Tambah jarak di atas
+              const SizedBox(height: 12),
               ListTile(
                 dense: true,
                 leading: const Icon(Icons.block, color: Colors.grey, size: 20),
@@ -304,235 +479,6 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildBlogCard(
-    Map<String, dynamic> blog,
-    TextTheme textTheme,
-    Color primaryColor,
-  ) {
-    final blogIndex = _blogs.indexOf(blog);
-    final isLiked = _likedBlogs[blogIndex] ?? false;
-    final isBookmarked = _bookmarkedBlogs[blogIndex] ?? false;
-    return Column(
-      children: [
-        Container(
-          color: Colors.white, // Background card putih
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => BlogPage(blog: blog)),
-              );
-            },
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Main Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Author Info
-                        Row(
-                          children: [
-                            // Author Avatar
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.grey[300],
-                              child: Text(
-                                blog['authorInitials'] as String,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: _kTextColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Author Name
-                            Flexible(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    blog['authorName'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  if (blog['verified'] == true) ...[
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.verified,
-                                      size: 14,
-                                      color: _kPurpleColor,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        // Title
-                        Text(
-                          blog['title'] as String,
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        // Snippet
-                        Text(
-                          blog['snippet'] as String,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 12),
-                        // Engagement Stats - Sejajar dengan action buttons
-                        Row(
-                          children: [
-                            // Left side: stats
-                            Flexible(
-                              child: Row(
-                                children: [
-                                  // Hilangkan icon bintang
-                                  Text(
-                                    blog['date'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Like icon - transparan, berubah warna saat diklik
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _likedBlogs[blogIndex] = !isLiked;
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        isLiked
-                                            ? Icons.thumb_up
-                                            : Icons.thumb_up_outlined,
-                                        size: 16,
-                                        color: isLiked
-                                            ? _kPurpleColor
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    blog['likes'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.comment_outlined,
-                                    size: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    blog['comments'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Right side: action buttons (always on the right)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Bookmark Button - transparan, berubah warna saat diklik
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _bookmarkedBlogs[blogIndex] =
-                                          !isBookmarked;
-                                    });
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      isBookmarked
-                                          ? Icons.bookmark
-                                          : Icons.bookmark_border,
-                                      size: 20,
-                                      color: isBookmarked
-                                          ? _kPurpleColor
-                                          : Colors.grey[600],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                // More Options Button
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    onTap: () => _showBlogMenu(context, blog),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: const Icon(
-                                        Icons.more_vert,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Right Side - Thumbnail
-                  Container(
-                    width: 80,
-                    height: 80,
-                    margin: const EdgeInsets.only(left: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: blog['thumbnail'] != null
-                        ? Image.network(
-                            blog['thumbnail'] as String,
-                            fit: BoxFit.cover,
-                          )
-                        : const SizedBox(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        // Divider antar card
-        const Divider(height: 1, thickness: 1, color: Color(0xFFDDDDDD)),
-      ],
     );
   }
 }
