@@ -76,7 +76,8 @@ class _PageControllerWidgetState extends State<PageControllerWidget> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 5), () {
+    // Delay: 1.4 detik animasi + 1.5 detik jeda = ~3 detik
+    Future.delayed(const Duration(milliseconds: 2900), () {
       if (mounted) {
         setState(() {
           _currentPage = AuthPage.login;

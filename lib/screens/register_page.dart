@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const Color _kPurpleColor = Color(0xFF673AB7);
+const Color _kPurpleColor = Color(0xFF8D07C6);
 const Color _kTextColor = Color(0xFF333333);
 
 class RegisterPage extends StatelessWidget {
@@ -8,37 +8,37 @@ class RegisterPage extends StatelessWidget {
   const RegisterPage({super.key, required this.onLoginTap});
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme.of(context).colorScheme.primary;
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFFFF),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 40.0),
+        padding: const EdgeInsets.symmetric(horizontal: 32.0),
         child: Column(
           children: <Widget>[
             // Jarak Atas
-            SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.12),
             // Logo dan Teks 'Lembar.'
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Image.asset('assets/images/logo1.png', width: 42, height: 42),
-                const SizedBox(width: 8),
+                Image.asset('assets/images/logo1.png', width: 32, height: 32),
+                const SizedBox(width: 6),
                 Text('Lembar.', style: textTheme.headlineLarge),
               ],
             ),
-            const SizedBox(height: 50),
+            const SizedBox(height: 32),
             // Judul
             Text('Daftar', style: textTheme.headlineLarge),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             // Input Nama pengguna
             _buildTextField(
               label: 'Nama pengguna',
               hint: 'Masukkan nama lengkap',
               context: context,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             // Input Email
             _buildTextField(
               label: 'Email',
@@ -46,7 +46,7 @@ class RegisterPage extends StatelessWidget {
               context: context,
               keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             // Input Kata Sandi
             _buildTextField(
               label: 'Kata sandi',
@@ -54,7 +54,7 @@ class RegisterPage extends StatelessWidget {
               context: context,
               isPassword: true,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             // Input Konfirmasi Kata Sandi
             _buildTextField(
               label: 'Konfirmasi kata sandi',
@@ -62,10 +62,10 @@ class RegisterPage extends StatelessWidget {
               context: context,
               isPassword: true,
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
             // Tombol Daftar (Gradient)
             _buildGradientButton(text: 'Daftar', onPressed: () {}),
-            const SizedBox(height: 50),
+            const SizedBox(height: 32),
             // Sudah Punya Akun? Masuk.
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -73,10 +73,12 @@ class RegisterPage extends StatelessWidget {
                 const Text('Sudah memiliki akun? '),
                 InkWell(
                   onTap: onLoginTap,
-                  child: Text(
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: const Text(
                     'Masuk.',
                     style: TextStyle(
-                      color: primaryColor,
+                      color: Color(0xFF8D07C6),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -100,7 +102,7 @@ class RegisterPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         TextField(
           keyboardType: keyboardType,
           obscureText: isPassword,
@@ -110,22 +112,22 @@ class RegisterPage extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             contentPadding: const EdgeInsets.symmetric(
-              vertical: 8.0,
-              horizontal: 20.0,
+              vertical: 6.0,
+              horizontal: 16.0,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0),
+              borderRadius: BorderRadius.circular(24.0),
               borderSide: const BorderSide(
                 color: Color(0xFFDDDDDD),
                 width: 1.0,
               ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0),
-              borderSide: const BorderSide(color: _kPurpleColor, width: 1.5),
+              borderRadius: BorderRadius.circular(24.0),
+              borderSide: const BorderSide(color: _kPurpleColor, width: 2),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(30.0),
+              borderRadius: BorderRadius.circular(24.0),
               borderSide: const BorderSide(
                 color: Color(0xFFDDDDDD),
                 width: 1.0,
@@ -143,9 +145,9 @@ class RegisterPage extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      height: 50,
+      height: 44,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(50.0),
+        borderRadius: BorderRadius.circular(24.0),
         gradient: const LinearGradient(
           colors: [Color(0xFF8D07C6), Color(0xFFDD01BE)],
           begin: Alignment.centerLeft,
@@ -159,13 +161,13 @@ class RegisterPage extends StatelessWidget {
           shadowColor: Colors.transparent,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(50.0),
+            borderRadius: BorderRadius.circular(24.0),
           ),
           foregroundColor: Colors.white,
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );
