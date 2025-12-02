@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_page.dart';
+import '../main/home_page.dart';
 
 const Color _kPurpleColor = Color(0xFF8D07C6);
 const Color _kTextColor = Color(0xFF333333);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav_bar.dart';
-import '../utils/navigation_helper.dart';
+import '../../widgets/bottom_nav_bar.dart';
+import '../../widgets/expandable_fab.dart';
+import '../../core/utils/navigation_helper.dart';
 import 'blog_page.dart';
 
 const Color _kTextColor = Color(0xFF333333);
@@ -124,6 +125,7 @@ class _MarkahPageState extends State<MarkahPage> {
         currentIndex: _currentNavIndex,
         onTap: _onItemTapped,
       ),
+      floatingActionButton: const ExpandableFAB(),
     );
   }
 

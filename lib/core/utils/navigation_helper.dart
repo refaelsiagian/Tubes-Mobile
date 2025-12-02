@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../screens/home_page.dart';
-import '../screens/search_page.dart';
-import '../screens/markah_page.dart';
-import '../screens/profile_page.dart';
+import '../../screens/main/home_page.dart';
+import '../../screens/main/search_page.dart';
+import '../../screens/main/markah_page.dart';
+import '../../screens/profile/profile_page.dart';
 
 class NavigationHelper {
   static void navigateToPage(BuildContext context, int index) {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/logo_page.dart';
-import 'screens/login_page.dart';
-import 'screens/register_page.dart';
+import 'screens/auth/logo_page.dart';
+import 'screens/auth/login_page.dart';
+import 'screens/auth/register_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,9 +18,8 @@ class MyApp extends StatelessWidget {
       title: 'Lembar.',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF673AB7)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8D07C6)),
         useMaterial3: true,
-
         fontFamily: 'Nunito',
         textTheme: const TextTheme(
           displayLarge: TextStyle(
@@ -40,23 +39,52 @@ class MyApp extends StatelessWidget {
           ),
           headlineSmall: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: Colors.black,
           ),
-          bodyMedium: TextStyle(
+          bodyLarge: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w400,
-            color: Colors.black,
+            color: Colors.black87,
           ),
-          bodySmall: TextStyle(
+          bodyMedium: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: Colors.black,
+            color: Colors.black87,
           ),
-          labelLarge: TextStyle(
+          bodySmall: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,
-            color: Colors.black,
+            color: Colors.black54,
+          ),
+          labelLarge: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+          labelMedium: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+          labelSmall: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+            color: Colors.black54,
+          ),
+        ),
+        appBarTheme: const AppBarTheme(
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),

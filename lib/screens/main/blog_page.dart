@@ -865,7 +865,7 @@ class _BlogPageState extends State<BlogPage> {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                           // View All Comments Button
                           Center(
                             child: Container(
@@ -1056,7 +1056,7 @@ class _BlogPageState extends State<BlogPage> {
                                   ),
                                 ),
                               )
-                              .toList(),
+                              ,
                           // View All Blogs Button
                           Center(
                             child: Container(

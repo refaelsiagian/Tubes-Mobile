@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'blog_page.dart';
-import '../widgets/bottom_nav_bar.dart';
-import '../utils/navigation_helper.dart';
+import '../../widgets/bottom_nav_bar.dart';
+import '../../widgets/expandable_fab.dart';
+import '../../core/utils/navigation_helper.dart';
+import '../../data/services/lembar_storage.dart';
 
 const Color _kTextColor = Color(0xFF333333);
 const Color _kPurpleColor = Color(0xFF8D07C6); // Warna aksen ungu baru
@@ -21,40 +23,106 @@ class _HomePageState extends State<HomePage> {
   bool _isNotificationClicked = false; // State untuk notifikasi
   static const int _currentNavIndex = 0; // Home page index
 
-  // Sample blog data
-  final List<Map<String, dynamic>> _blogs = [
-    {
-      'authorName': 'John Doe',
-      'authorInitials': 'JD',
-      'title': 'Lorem ipsum',
-      'snippet': 'Lorem ipsum dolor sit amet...',
-      'thumbnail': null,
-      'date': '6d ago',
-      'likes': '1.5K',
-      'comments': '14',
-    },
-    {
-      'authorName': 'John Doe',
-      'authorInitials': 'JD',
-      'title': 'Lorem ipsum',
-      'snippet': 'Lorem ipsum dolor sit amet...',
-      'thumbnail': null,
-      'date': 'Jul 28',
-      'likes': '17K',
-      'comments': '683',
-      'verified': true,
-    },
-    {
-      'authorName': 'John Doe',
-      'authorInitials': 'JD',
-      'title': 'Lorem ipsum',
-      'snippet': 'Lorem ipsum dolor sit amet...',
-      'thumbnail': null,
-      'date': '3d ago',
-      'likes': '892',
-      'comments': '45',
-    },
-  ];
+  List<Map<String, dynamic>> _blogs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBlogs();
+  }
+
+  Future<void> _loadBlogs() async {
+    // Load published lembar from storage
+    final publishedLembar = await LembarStorage.getPublishedLembar();
+
+    // Convert to blog format and combine with sample data
+    final lembarBlogs = publishedLembar
+        .map(
+          (lembar) => {
+            'authorName': lembar['authorName'] ?? 'Pengguna',
+            'authorInitials': lembar['authorInitials'] ?? 'PG',
+            'title': lembar['title'] ?? 'Untitled',
+            'snippet': lembar['snippet'] ?? '',
+            'thumbnail': lembar['thumbnail'],
+            'date': _formatDate(lembar['publishedAt']),
+            'likes': lembar['likes'] ?? '0',
+            'comments': lembar['comments'] ?? '0',
+            'documentJson': lembar['documentJson'],
+            'content': lembar['content'],
+          },
+        )
+        .toList();
+
+    // Sample blog data (fallback)
+    final sampleBlogs = [
+      {
+        'authorName': 'John Doe',
+        'authorInitials': 'JD',
+        'title': 'Lorem ipsum',
+        'snippet': 'Lorem ipsum dolor sit amet...',
+        'thumbnail': null,
+        'date': '6d ago',
+        'likes': '1.5K',
+        'comments': '14',
+      },
+      {
+        'authorName': 'John Doe',
+        'authorInitials': 'JD',
+        'title': 'Lorem ipsum',
+        'snippet': 'Lorem ipsum dolor sit amet...',
+        'thumbnail': null,
+        'date': 'Jul 28',
+        'likes': '17K',
+        'comments': '683',
+        'verified': true,
+      },
+      {
+        'authorName': 'John Doe',
+        'authorInitials': 'JD',
+        'title': 'Lorem ipsum',
+        'snippet': 'Lorem ipsum dolor sit amet...',
+        'thumbnail': null,
+        'date': '3d ago',
+        'likes': '892',
+        'comments': '45',
+      },
+    ];
+
+    setState(() {
+      // Combine published lembar with sample blogs
+      _blogs = [...lembarBlogs, ...sampleBlogs];
+    });
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'Just now';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          if (difference.inMinutes == 0) {
+            return 'Just now';
+          }
+          return '${difference.inMinutes}m ago';
+        }
+        return '${difference.inHours}h ago';
+      } else if (difference.inDays == 1) {
+        return '1d ago';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}d ago';
+      } else if (difference.inDays < 30) {
+        final weeks = (difference.inDays / 7).floor();
+        return '${weeks}w ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Just now';
+    }
+  }
 
   void _onItemTapped(int index) {
     if (index != _currentNavIndex) {
@@ -158,14 +226,7 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _currentNavIndex,
         onTap: _onItemTapped,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navigate to create blog page
-        },
-        backgroundColor: _kPurpleColor,
-        shape: const CircleBorder(), // Pastikan bulat
-        child: const Icon(Icons.edit, color: Colors.white),
-      ),
+      floatingActionButton: const ExpandableFAB(),
     );
   }
 
@@ -509,21 +570,20 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  // Right Side - Thumbnail
+                  // Right Side - Thumbnail with sample image
                   Container(
                     width: 80,
                     height: 80,
                     margin: const EdgeInsets.only(left: 16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: NetworkImage(
+                          blog['thumbnail'] as String? ?? 'https://picsum.photos/200/300?random=${blog['id'] ?? blogIndex}',
+                        ),
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                    child: blog['thumbnail'] != null
-                        ? Image.network(
-                            blog['thumbnail'] as String,
-                            fit: BoxFit.cover,
-                          )
-                        : const SizedBox(),
                   ),
                 ],
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav_bar.dart';
-import '../utils/navigation_helper.dart';
+import '../../widgets/bottom_nav_bar.dart';
+import '../../widgets/expandable_fab.dart';
+import '../../core/utils/navigation_helper.dart';
 
 const Color _kBackgroundColor = Color(0xFFFFFFFF);
 
@@ -98,6 +99,7 @@ class _SearchPageState extends State<SearchPage> {
         currentIndex: _currentNavIndex,
         onTap: _onItemTapped,
       ),
+      floatingActionButton: const ExpandableFAB(),
     );
   }
 }

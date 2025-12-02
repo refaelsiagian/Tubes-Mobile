@@ -100,8 +100,11 @@ class _LogoPageState extends State<LogoPage>
               opacity: charProgress,
               child: Text(
                 char,
-                style: textTheme.headlineLarge?.copyWith(
-                  fontSize: 32, // Diperbesar dari 24 menjadi 32
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
               ),
             );

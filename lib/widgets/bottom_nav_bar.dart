@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 const Color _kPurpleColor = Color(0xFF8D07C6);
+const Color _kInactiveColor = Color(0xFF9E9E9E);
 
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -41,14 +42,33 @@ class CustomBottomNavBar extends StatelessWidget {
           iconSize: 24,
           showSelectedLabels: false,
           showUnselectedLabels: false,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
-            BottomNavigationBarItem(icon: Icon(Icons.search), label: ''),
-            BottomNavigationBarItem(icon: Icon(Icons.bookmark_border), label: ''),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
+          items: [
+            _buildNavItem(Icons.home, 0),
+            _buildNavItem(Icons.search, 1),
+            _buildNavItem(Icons.bookmark_border, 2),
+            _buildNavItem(Icons.person_outline, 3),
           ],
         ),
       ),
+    );
+  }
+
+  BottomNavigationBarItem _buildNavItem(IconData icon, int index) {
+    return BottomNavigationBarItem(
+      icon: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+        decoration: BoxDecoration(
+          color: currentIndex == index 
+              ? _kPurpleColor.withOpacity(0.2)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(
+          icon,
+          color: currentIndex == index ? _kPurpleColor : _kInactiveColor,
+        ),
+      ),
+      label: '',
     );
   }
 }
