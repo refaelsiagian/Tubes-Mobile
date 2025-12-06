@@ -8,9 +8,14 @@ import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
 import '../../data/services/lembar_storage.dart';
 
-const Color _kTextColor = Color(0xFF333333);
+// Pastikan import ini sesuai dengan lokasi file EditProfilePage kamu
+import 'edit_profile_page.dart'; 
+
+// Konstanta Warna Modern
+const Color _kTextColor = Color(0xFF1A1A1A);
 const Color _kPurpleColor = Color(0xFF8D07C6);
-const Color _kBackgroundColor = Color(0xFFFFFFFF);
+const Color _kBackgroundColor = Color.fromARGB(255, 255, 255, 255);
+const Color _kSubTextColor = Color(0xFF757575);
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -22,19 +27,34 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isSettingsClicked = false;
-  String _selectedFilter = 'Public'; // Public, Private, Draft
-  static const int _currentNavIndex = 3; // Profile page index
+  String _selectedFilter = 'Public';
+  static const int _currentNavIndex = 3;
 
   // Sample user data
-  final String _userName = 'Angel Tobing';
-  final String _userInitials = 'AT';
-  final String? _profileImageUrl = null; // Can be set to an image URL
-  final int _followers = 0;
-  final int _following = 1;
+  String _userName = 'Dells'; // Hapus final agar bisa diupdate
+  final String _userInitials = 'AT'; // Variable ini tidak dipakai lagi di UI, tapi biarkan saja biar ga error logic
+  String _userBio = 'Penulis & Kreator yang fokus pada kesederhanaan & kegunaan.';
+  final String? _bannerImageUrl = 'assets/images/banner.jpg';
+  final String? _profileImageUrl = null;
+  final int _followers = 120;
+  final int _following = 45;
 
-  // Stories data (blogs published by user)
   List<Map<String, dynamic>> _stories = [];
+  List<Map<String, dynamic>> _jilid = [];
+
+  // Sample liked blogs
+  final List<Map<String, dynamic>> _likedBlogs = [
+    {
+      'authorName': 'John Doe',
+      'authorInitials': '', // Kosongkan inisial
+      'title': 'Lorem ipsum dolor sit amet',
+      'snippet': 'Consectetur adipiscing elit...',
+      'thumbnail': null,
+      'date': '6d ago',
+      'likes': '1.5K',
+      'comments': '14',
+    },
+  ];
 
   @override
   void initState() {
@@ -43,8 +63,7 @@ class _ProfilePageState extends State<ProfilePage>
     _tabController.addListener(() {
       if (_tabController.indexIsChanging ||
           _tabController.index != _tabController.previousIndex) {
-        setState(() {}); // Rebuild when tab changes
-        // Refresh data when switching tabs
+        setState(() {});
         _refreshData();
       }
     });
@@ -52,7 +71,6 @@ class _ProfilePageState extends State<ProfilePage>
     _loadJilid();
   }
 
-  // Refresh data when tab changes or when returning to this page
   void _refreshData() {
     _loadJilid();
     _loadStories();
@@ -72,69 +90,355 @@ class _ProfilePageState extends State<ProfilePage>
     });
   }
 
-  // Jilid data (collections/bookmarks) - loaded from storage
-  List<Map<String, dynamic>> _jilid = [];
+  // --- LOGIC: STORY MENU (Untuk Tab Lembar) ---
+  void _showStoryOptionMenu(BuildContext context, Map<String, dynamic> story) {
+    final currentVisibility = story['visibility'] ?? 'Publik';
 
-  // Sample liked blogs data
-  final List<Map<String, dynamic>> _likedBlogs = [
-    {
-      'authorName': 'John Doe',
-      'authorInitials': 'JD',
-      'title': 'Lorem ipsum',
-      'snippet': 'Lorem ipsum dolor sit amet...',
-      'thumbnail': null,
-      'date': '6d ago',
-      'likes': '1.5K',
-      'comments': '14',
-    },
-    {
-      'authorName': 'Jane Smith',
-      'authorInitials': 'JS',
-      'title': 'Dolor sit amet',
-      'snippet': 'Consectetur adipiscing elit...',
-      'thumbnail': null,
-      'date': '3d ago',
-      'likes': '892',
-      'comments': '45',
-    },
-  ];
-
-  // State untuk like dan bookmark per blog
-  final Map<int, bool> _likedBlogsState = {};
-  final Map<int, bool> _bookmarkedBlogsState = {};
-
-  void _showLogoutConfirmation(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel', style: TextStyle(color: _kTextColor)),
-            ),
-            TextButton(
-              onPressed: () {
-Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LoginPage(
-                      onRegisterTap: () {
-                      },
-                      onForgotTap: () {
-                      },
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                ),
+                _buildMenuItem(
+                  icon: currentVisibility == 'Publik'
+                      ? Icons.lock_outline_rounded
+                      : Icons.public_rounded,
+                  label: currentVisibility == 'Publik'
+                      ? 'Ubah ke Private'
+                      : 'Ubah ke Publik',
+                  color: Colors.blueAccent,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _changeVisibility(story);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _buildMenuItem(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Hapus Cerita',
+                  color: Colors.redAccent,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteStory(story);
+                  },
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
+    );
+  }
+
+  // --- LOGIC: LIKED MENU (Untuk Tab Disukai) ---
+  void _showLikedOptionMenu(BuildContext context, Map<String, dynamic> blog) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Opsi 1: Bagikan
+                _buildMenuItem(
+                  icon: Icons.share_rounded,
+                  label: 'Bagikan',
+                  color: Colors.blueAccent,
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Implementasi share
+                  },
+                ),
+                const SizedBox(height: 12),
+                // Opsi 2: Hapus dari Disukai
+                _buildMenuItem(
+                  icon: Icons.favorite_border_rounded,
+                  label: 'Hapus dari Disukai',
+                  color: Colors.redAccent,
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Implementasi unlike (Simulasi)
+                    setState(() {
+                      _likedBlogs.remove(blog);
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Dihapus dari daftar suka"),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _changeVisibility(Map<String, dynamic> story) async {
+    final currentVisibility = story['visibility'] ?? 'Publik';
+    final newVisibility = currentVisibility == 'Publik' ? 'Private' : 'Publik';
+    final newStoryData = Map<String, dynamic>.from(story);
+    newStoryData['visibility'] = newVisibility;
+
+    if (story['id'] != null) {
+      await LembarStorage.updateStory(story['id'].toString(), newStoryData);
+      _loadStories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Visibilitas diubah menjadi $newVisibility'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteStory(Map<String, dynamic> story) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Cerita?'),
+        content: const Text(
+          'Cerita ini akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.',
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && story['id'] != null) {
+      await LembarStorage.deleteStory(story['id'].toString());
+      _loadStories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cerita berhasil dihapus'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _editJilid(Map<String, dynamic> jilid) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EditJilidPage(jilid: jilid)),
+    );
+    if (mounted) {
+      _loadJilid();
+    }
+  }
+
+  Future<void> _confirmDeleteJilid(Map<String, dynamic> jilid) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Jilid?'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus jilid "${jilid['title']}"?',
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && jilid['id'] != null) {
+      await LembarStorage.deleteJilid(jilid['id'].toString());
+      _loadJilid();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Jilid berhasil dihapus')));
+      }
+    }
+  }
+
+  void _showLogoutConfirmation(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.logout, size: 40, color: _kTextColor),
+                const SizedBox(height: 16),
+                const Text(
+                  'Keluar Akun?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: _kTextColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Apakah kamu yakin ingin keluar dari aplikasi?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: _kSubTextColor),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Batal',
+                          style: TextStyle(color: _kTextColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => LoginPage(
+                                onRegisterTap: () {},
+                                onForgotTap: () {},
+                              ),
+                            ),
+                            (Route<dynamic> route) => false,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text('Keluar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _kTextColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -151,219 +455,50 @@ Navigator.pushAndRemoveUntil(
     return Scaffold(
       backgroundColor: _kBackgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header dengan Settings Button
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 10.0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Back button atau empty space
-                    const SizedBox(width: 24),
-                    // Settings Menu with Logout
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.settings_outlined,
-                        color: _isSettingsClicked ? _kPurpleColor : _kTextColor,
-                        size: 22,
-                      ),
-                      onSelected: (value) {
-                        if (value == 'logout') {
-                          _showLogoutConfirmation(context);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'logout',
-                          child: Row(
-                            children: [
-                              Icon(Icons.logout, color: Colors.black54, size: 20),
-                              SizedBox(width: 8),
-                              Text('Logout', style: TextStyle(color: Colors.black87)),
-                            ],
-                          ),
-                        ),
-                      ],
-                      onCanceled: () {
-                        setState(() {
-                          _isSettingsClicked = false;
-                        });
-                      },
-                      onOpened: () {
-                        setState(() {
-                          _isSettingsClicked = true;
-                        });
-                      },
-                    ),
-                  ],
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [_buildModernProfileHeader(context, textTheme)],
                 ),
               ),
-            ),
-            // Profile Section
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 20.0,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Profile Picture
-                  Builder(
-                    builder: (context) {
-                      final imageUrl = _profileImageUrl;
-                      if (imageUrl != null) {
-                        return CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.grey[300],
-                          backgroundImage: NetworkImage(imageUrl),
-                        );
-                      }
-                      return CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.grey[300],
-                        child: Text(
-                          _userInitials,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 16),
-                  // Name and Stats
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _userName,
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '$_followers followers · $_following following',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+              SliverPersistentHeader(
+                delegate: _SliverAppBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: _kPurpleColor,
+                    unselectedLabelColor: _kSubTextColor,
+                    indicatorColor: _kPurpleColor,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    indicatorWeight: 3,
+                    labelStyle: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            // Tabs
-            Container(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: _kTextColor,
-                unselectedLabelColor: Colors.grey[600],
-                indicatorColor: _kTextColor,
-                indicatorWeight: 2,
-                tabs: const [
-                  Tab(text: 'Stories'),
-                  Tab(text: 'Likes'),
-                  Tab(text: 'Jilid'),
-                ],
-              ),
-            ),
-            // Filter Dropdown (only show in Stories tab)
-            if (_tabController.index == 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
-                child: Container(
-                  height: 35,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25.0),
-                    border: Border.all(color: const Color(0xFFDDDDDD), width: 1.2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
+                    unselectedLabelStyle: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                    tabs: const [
+                      Tab(text: 'Lembar'),
+                      Tab(text: 'Jilid'),
+                      Tab(text: 'Disukai'),
                     ],
                   ),
-                  child: DropdownButtonHideUnderline(
-                    child: ButtonTheme(
-                      alignedDropdown: true,
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        value: _selectedFilter,
-                        icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFDDDDDD)),
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: _kTextColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        dropdownColor: Colors.white,
-                        borderRadius: BorderRadius.circular(25.0),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Public',
-                            child: Text('Public'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Private',
-                            child: Text('Private'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Draft',
-                            child: Text('Draft'),
-                          ),
-                        ],
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            setState(() {
-                              _selectedFilter = newValue;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ),
                 ),
+                pinned: true,
               ),
-            // Content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Stories Tab
-                  _buildStoriesTab(textTheme),
-                  // Likes Tab
-                  _buildLikesTab(textTheme),
-                  // Jilid Tab
-                  _buildJilidTab(textTheme),
-                ],
-              ),
-            ),
-          ],
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildStoriesTab(textTheme),
+              _buildJilidTab(textTheme),
+              _buildLikesTab(textTheme),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: CustomBottomNavBar(
@@ -375,832 +510,658 @@ Navigator.pushAndRemoveUntil(
         },
       ),
       floatingActionButton: ExpandableFAB(
-        onAddLembarComplete: () {
-          // Reload stories after returning from add lembar
-          _loadStories();
-        },
-        onCreateJilidComplete: (result) {
-          // Reload jilid from storage after creating new one
-          _loadJilid();
-        },
+        onAddLembarComplete: _loadStories,
+        onCreateJilidComplete: (result) => _loadJilid(),
       ),
     );
   }
 
-  Widget _buildStoriesTab(TextTheme textTheme) {
-    // Filter stories based on selected filter
-    final filteredStories = _stories.where((story) {
-      // In a real app, you would filter based on story['visibility']
-      return true; // For now, show all
-    }).toList();
-
-    if (filteredStories.isEmpty) {
-      return Center(
-        child: Text(
-          'No $_selectedFilter.toLowerCase() stories yet',
-          style: textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-      itemCount: filteredStories.length,
-      itemBuilder: (context, index) {
-        final story = filteredStories[index];
-        return _buildStoryCard(story, textTheme, index);
-      },
-    );
-  }
-
-  Widget _buildStoryCard(
-    Map<String, dynamic> story,
-    TextTheme textTheme,
-    int index,
-  ) {
+  Widget _buildModernProfileHeader(BuildContext context, TextTheme textTheme) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          color: Colors.white,
-          child: InkWell(
-            onTap: () {
-              // TODO: Navigate to story detail or edit
-            },
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Main Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title
-                        Text(
-                          story['title'] as String,
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomLeft,
+          children: [
+            Container(
+              height: 180,
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.shade100,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                  bottom: Radius.circular(24),
+                ),
+                image: _bannerImageUrl != null
+                    ? DecorationImage(
+                        image: AssetImage(_bannerImageUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: ElevatedButton(
+                          // --- Fungsi Navigasi ke Edit Profile ---
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const EditProfilePage(
+                                  initialName: 'Dells', 
+                                  initialBio: 'Penulis...',
+                                  initialEmail: 'user@email.com',
+                                ),
+                              ),
+                            );
+                            
+                            // Merefresh halaman setelah kembali (jika ada data yang berubah)
+                            if (result != null && mounted) {
+                              setState(() {
+                                if (result['name'] != null) _userName = result['name'];
+                                if (result['bio'] != null) _userBio = result['bio'];
+                              });
+                            }
+                          },
+                          // ---------------------------------------------------
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _kTextColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            shape: const CircleBorder(),
+                          ),
+                          child: const Icon(Icons.edit_rounded, size: 20),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => _showLogoutConfirmation(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.settings_outlined,
                             color: _kTextColor,
+                            size: 20,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
-                        // Snippet
-                        Text(
-                          story['snippet'] as String,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -25,
+              left: 36,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: _kBackgroundColor,
+                  shape: BoxShape.circle,
+                ),
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.grey.shade300, // Warna Abu
+                  backgroundImage: _profileImageUrl != null
+                      ? NetworkImage(_profileImageUrl!)
+                      : null,
+                  // PERBAIKAN 1: Ganti Inisial dengan Icon Person
+                  child: _profileImageUrl == null
+                      ? const Icon(
+                          Icons.person_rounded,
+                          size: 40,
+                          color: Colors.white,
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 40),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _userName,
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: _kTextColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: _kTextColor,
+                        fontSize: 14,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '$_followers',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const TextSpan(text: ' Pengikut'),
+                        const TextSpan(
+                          text: '  •  ',
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontWeight: FontWeight.bold,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 12),
-                        // Date and Actions
-                        Row(
-                          children: [
-                            Text(
-                              story['date'] as String,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const Spacer(),
-                            // Bookmark Button
-                            GestureDetector(
-                              onTap: () {
-                                // TODO: Handle bookmark
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.bookmark_add_outlined,
-                                  size: 20,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            // More Options Button
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(20),
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () => _showStoryMenu(context, story),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: const Icon(
-                                    Icons.more_vert,
-                                    size: 20,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                        TextSpan(
+                          text: '$_following',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
+                        const TextSpan(text: ' Mengikuti'),
                       ],
                     ),
                   ),
-                  // Right Side - Thumbnail
-                  if (story['thumbnail'] != null)
-                    Container(
-                      width: 80,
-                      height: 80,
-                      margin: const EdgeInsets.only(left: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Image.network(
-                        story['thumbnail'] as String,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  else
-                    Container(
-                      width: 80,
-                      height: 80,
-                      margin: const EdgeInsets.only(left: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const SizedBox(),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 192, 118, 224),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_stories.length} Karya',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                _userBio,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: _kSubTextColor,
+                  height: 1.4,
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
         ),
-        // Divider antar card
-        const Divider(height: 1, thickness: 1, color: Color(0xFFDDDDDD)),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildStoriesTab(TextTheme textTheme) {
+    final filteredStories = _stories;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedFilter,
+                  isDense: true,
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: _kPurpleColor,
+                  ),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: _kPurpleColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  items: ['Public', 'Private', 'Draft'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    if (newValue != null)
+                      setState(() => _selectedFilter = newValue);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (filteredStories.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: Center(
+              child: Text(
+                'Belum ada lembar $_selectedFilter',
+                style: const TextStyle(color: _kSubTextColor),
+              ),
+            ),
+          )
+        else
+          ...filteredStories
+              .map(
+                (story) => _buildModernContentCard(
+                  story,
+                  textTheme,
+                  onMenuTap: () => _showStoryOptionMenu(context, story),
+                  isLikedTab: false,
+                ),
+              )
+              .toList(),
       ],
     );
   }
 
   Widget _buildLikesTab(TextTheme textTheme) {
     if (_likedBlogs.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
-          'No liked blogs yet',
-          style: textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+          'Belum ada yang disukai',
+          style: TextStyle(color: _kSubTextColor),
         ),
       );
     }
-
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
       itemCount: _likedBlogs.length,
       itemBuilder: (context, index) {
         final blog = _likedBlogs[index];
-        return _buildBlogCard(blog, textTheme, index);
+        return _buildModernContentCard(
+          blog,
+          textTheme,
+          onMenuTap: () => _showLikedOptionMenu(context, blog),
+          isLikedTab: true,
+        );
       },
+    );
+  }
+
+  // === WIDGET KARTU (UPDATED STYLE & ICON) ===
+  Widget _buildModernContentCard(
+    Map<String, dynamic> item,
+    TextTheme textTheme, {
+    required VoidCallback onMenuTap,
+    bool isLikedTab = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BlogPage(
+                  blog: {
+                    'title': item['title'],
+                    'documentJson': item['documentJson'],
+                    'snippet': item['snippet'] ?? '',
+                    'date': item['date'] ?? 'Baru saja',
+                    'authorName': item['authorName'] ?? _userName,
+                    'authorInitials': item['authorInitials'] ?? '',
+                    'thumbnail': item['thumbnail'],
+                    'likes': item['likes'] ?? '0',
+                    'comments': item['comments'] ?? '0',
+                    'tags': item['tags'] ?? [],
+                  },
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // PERBAIKAN 2: Avatar List jadi Icon
+                          CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.grey.shade300,
+                            child: const Icon(
+                              Icons.person,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            item['authorName'] ?? 'Pengguna', // Pastikan fallback 'Pengguna'
+                            style: textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: _kTextColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            item['date'] ?? '',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: _kSubTextColor,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        item['title'] ?? 'Tanpa Judul',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: _kTextColor,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item['snippet'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: _kSubTextColor,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(
+                            isLikedTab
+                                ? Icons.favorite
+                                : Icons.favorite_border_rounded,
+                            size: 16,
+                            color: isLikedTab ? Colors.red : _kSubTextColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            item['likes'] ?? '0',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(
+                            Icons.mode_comment_outlined,
+                            size: 16,
+                            color: _kSubTextColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            item['comments'] ?? '0',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                          const Spacer(),
+
+                          // Menu Titik Tiga
+                          GestureDetector(
+                            onTap: onMenuTap,
+                            child: const Icon(
+                              Icons.more_horiz,
+                              size: 20,
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (item['thumbnail'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.grey[100],
+                        image: DecorationImage(
+                          image: NetworkImage(item['thumbnail']),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.image_outlined,
+                        color: Colors.grey.shade300,
+                        size: 30,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildJilidTab(TextTheme textTheme) {
     if (_jilid.isEmpty) {
-      return Center(
-        child: Text(
-          'No collections yet',
-          style: textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-        ),
+      return const Center(
+        child: Text('Belum ada Jilid', style: TextStyle(color: _kSubTextColor)),
       );
     }
-
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
       itemCount: _jilid.length,
       itemBuilder: (context, index) {
-        final jilid = _jilid[index];
-        return _buildJilidCard(jilid, textTheme, index);
+        return _buildModernJilidCard(_jilid[index], textTheme);
       },
     );
   }
 
-  Widget _buildJilidCard(
+  Widget _buildModernJilidCard(
     Map<String, dynamic> jilid,
     TextTheme textTheme,
-    int index,
   ) {
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => JilidDetailPage(jilid: jilid),
-                ),
-              );
-              // Reload jilid from storage after editing
-              if (mounted) {
-                _loadJilid();
-              }
-            },
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Thumbnail or Icon
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: jilid['thumbnail'] != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              jilid['thumbnail'] as String,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Icon(
-                            Icons.bookmark,
-                            size: 32,
-                            color: Colors.grey[400],
-                          ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Main Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title
-                        Text(
-                          jilid['title'] as String,
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        // Description
-                        Text(
-                          jilid['description'] as String,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        // Count
-                        Text(
-                          '${jilid['count']} artikel',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // More Options Button
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      splashColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () => _showJilidMenu(context, jilid),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: const Icon(
-                          Icons.more_vert,
-                          size: 20,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        ),
-        // Divider antar card
-        const Divider(height: 1, thickness: 1, color: Color(0xFFDDDDDD)),
-      ],
-    );
-  }
-
-  Widget _buildBlogCard(
-    Map<String, dynamic> blog,
-    TextTheme textTheme,
-    int index,
-  ) {
-    final isLiked =
-        _likedBlogsState[index] ?? true; // Liked blogs are liked by default
-    final isBookmarked = _bookmarkedBlogsState[index] ?? false;
-
-    return Column(
-      children: [
-        Container(
-          color: Colors.white,
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => BlogPage(blog: blog)),
-              );
-            },
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Main Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Author Info
-                        Row(
-                          children: [
-                            // Author Avatar
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.grey[300],
-                              child: Text(
-                                blog['authorInitials'] as String,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: _kTextColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Author Name
-                            Flexible(
-                              child: Text(
-                                blog['authorName'] as String,
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        // Title
-                        Text(
-                          blog['title'] as String,
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        // Snippet
-                        Text(
-                          blog['snippet'] as String,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 12),
-                        // Engagement Stats
-                        Row(
-                          children: [
-                            // Left side: stats
-                            Flexible(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    blog['date'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Like icon
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _likedBlogsState[index] = !isLiked;
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        isLiked
-                                            ? Icons.thumb_up
-                                            : Icons.thumb_up_outlined,
-                                        size: 16,
-                                        color: isLiked
-                                            ? _kPurpleColor
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    blog['likes'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.comment_outlined,
-                                    size: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    blog['comments'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Right side: action buttons
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Bookmark Button
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _bookmarkedBlogsState[index] =
-                                          !isBookmarked;
-                                    });
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      isBookmarked
-                                          ? Icons.bookmark
-                                          : Icons.bookmark_border,
-                                      size: 20,
-                                      color: isBookmarked
-                                          ? _kPurpleColor
-                                          : Colors.grey[600],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                // More Options Button
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    onTap: () => _showBlogMenu(context, blog),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: const Icon(
-                                        Icons.more_vert,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Right Side - Thumbnail
-                  Container(
-                    width: 80,
-                    height: 80,
-                    margin: const EdgeInsets.only(left: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: blog['thumbnail'] != null
-                        ? Image.network(
-                            blog['thumbnail'] as String,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => JilidDetailPage(jilid: jilid),
+              ),
+            );
+            if (mounted) _loadJilid();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: _kPurpleColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    image: jilid['thumbnail'] != null
+                        ? DecorationImage(
+                            image: NetworkImage(jilid['thumbnail']),
                             fit: BoxFit.cover,
                           )
-                        : const SizedBox(),
+                        : null,
                   ),
-                ],
-              ),
+                  child: jilid['thumbnail'] == null
+                      ? const Icon(
+                          Icons.folder_open_rounded,
+                          color: _kPurpleColor,
+                          size: 32,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        jilid['title'] ?? 'Tanpa Nama',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: _kTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        jilid['description'] ?? 'Tidak ada deskripsi',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: _kSubTextColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${jilid['count'] ?? 0} Artikel',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _kSubTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        // Divider antar card
-        const Divider(height: 1, thickness: 1, color: Color(0xFFDDDDDD)),
-      ],
+      ),
     );
   }
+}
 
-  void _showStoryMenu(BuildContext context, Map<String, dynamic> story) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.edit, color: Colors.grey, size: 20),
-                title: const Text('Edit', style: TextStyle(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle edit
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.share, color: Colors.grey, size: 20),
-                title: const Text('Bagikan', style: TextStyle(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle bagikan
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Hapus',
-                  style: TextStyle(color: Colors.red, fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle hapus
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+
+  _SliverAppBarDelegate(this._tabBar);
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: _kBackgroundColor, child: _tabBar);
   }
 
-  void _showBlogMenu(BuildContext context, Map<String, dynamic> blog) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.block, color: Colors.grey, size: 20),
-                title: const Text(
-                  'Tidak tertarik',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle tidak tertarik
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.bookmark_border,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Tambahkan ke markah',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle tambah ke markah
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.share, color: Colors.grey, size: 20),
-                title: const Text('Bagikan', style: TextStyle(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle bagikan
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.person_add_outlined,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Ikuti penulis',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle ikuti penulis
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.volume_off_outlined,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Bisukan penulis',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle bisukan penulis
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.flag_outlined,
-                  color: Colors.red,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Laporkan blog',
-                  style: TextStyle(color: Colors.red, fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle laporkan blog
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showJilidMenu(BuildContext context, Map<String, dynamic> jilid) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.edit, color: Colors.grey, size: 20),
-                title: const Text('Edit', style: TextStyle(fontSize: 14)),
-                onTap: () async {
-                  Navigator.pop(context);
-                  // Navigate to edit jilid page
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditJilidPage(jilid: jilid),
-                    ),
-                  );
-                  // Reload jilid from storage after editing
-                  if (result == true && mounted) {
-                    _loadJilid();
-                  }
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.share, color: Colors.grey, size: 20),
-                title: const Text('Bagikan', style: TextStyle(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle bagikan jilid
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Hapus',
-                  style: TextStyle(color: Colors.red, fontSize: 14),
-                ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  // Delete jilid from storage
-                  final jilidId = jilid['id']?.toString();
-                  if (jilidId != null && jilidId.isNotEmpty) {
-                    await LembarStorage.deleteJilid(jilidId);
-                    // Reload jilid list
-                    _loadJilid();
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }
