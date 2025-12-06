@@ -335,8 +335,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                     'date':
                         lembar['date'] ?? _formatDate(lembar['publishedAt']),
                     'authorName': lembar['authorName'] ?? 'Pengguna',
-                    // PERBAIKAN 1: Kosongkan inisial saat navigasi
-                    'authorInitials': '', 
+                    'authorInitials': '',
                     'thumbnail': lembar['thumbnail'],
                     'likes': lembar['likes'] ?? '0',
                     'comments': lembar['comments'] ?? '0',
@@ -357,14 +356,11 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                     children: [
                       Row(
                         children: [
-                          // PERBAIKAN 2: Ganti CircleAvatar Teks jadi Icon Person
                           CircleAvatar(
-                            radius: 8, // Ukuran kecil
+                            radius: 8,
                             backgroundColor: Colors.grey.shade300,
-                            child: const Icon(
-                              Icons.person,
-                              size: 10, // Icon disesuaikan dengan radius
-                              color: Colors.white,
+                            backgroundImage: const AssetImage(
+                              'assets/images/ava_default.jpg',
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -446,38 +442,27 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                     ],
                   ),
                 ),
-                if (lembar['thumbnail'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                        image: DecorationImage(
-                          image: NetworkImage(lembar['thumbnail']),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                      ),
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Colors.grey[300],
+
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[100],
+                      image: DecorationImage(
+                        image: lembar['thumbnail'] != null
+                            ? NetworkImage(lembar['thumbnail'])
+                            : const AssetImage(
+                                    'assets/images/thumb_default.jpg',
+                                  )
+                                  as ImageProvider,
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),

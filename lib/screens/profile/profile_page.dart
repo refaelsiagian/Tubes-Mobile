@@ -7,9 +7,7 @@ import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
 import '../../data/services/lembar_storage.dart';
-
-// Pastikan import ini sesuai dengan lokasi file EditProfilePage kamu
-import 'edit_profile_page.dart'; 
+import 'edit_profile_page.dart';
 
 // Konstanta Warna Modern
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -31,10 +29,14 @@ class _ProfilePageState extends State<ProfilePage>
   static const int _currentNavIndex = 3;
 
   // Sample user data
-  String _userName = 'Dells'; // Hapus final agar bisa diupdate
-  final String _userInitials = 'AT'; // Variable ini tidak dipakai lagi di UI, tapi biarkan saja biar ga error logic
-  String _userBio = 'Penulis & Kreator yang fokus pada kesederhanaan & kegunaan.';
-  final String? _bannerImageUrl = 'assets/images/banner.jpg';
+  String _userName = 'Dells';
+  final String _userInitials = 'AT';
+  String _userBio =
+      'Penulis & Kreator yang fokus pada kesederhanaan & kegunaan.';
+  
+  // Tetap pakai banner default
+  final String? _bannerImageUrl = 'assets/images/banner_default.jpg';
+
   final String? _profileImageUrl = null;
   final int _followers = 120;
   final int _following = 45;
@@ -46,7 +48,7 @@ class _ProfilePageState extends State<ProfilePage>
   final List<Map<String, dynamic>> _likedBlogs = [
     {
       'authorName': 'John Doe',
-      'authorInitials': '', // Kosongkan inisial
+      'authorInitials': '',
       'title': 'Lorem ipsum dolor sit amet',
       'snippet': 'Consectetur adipiscing elit...',
       'thumbnail': null,
@@ -534,12 +536,13 @@ class _ProfilePageState extends State<ProfilePage>
                   top: Radius.circular(24),
                   bottom: Radius.circular(24),
                 ),
-                image: _bannerImageUrl != null
-                    ? DecorationImage(
-                        image: AssetImage(_bannerImageUrl!),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
+                // Banner tetap default
+                image: DecorationImage(
+                  image: _bannerImageUrl != null
+                      ? AssetImage(_bannerImageUrl!)
+                      : const AssetImage('assets/images/banner_default.jpg'),
+                  fit: BoxFit.cover,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -559,28 +562,27 @@ class _ProfilePageState extends State<ProfilePage>
                         width: 38,
                         height: 38,
                         child: ElevatedButton(
-                          // --- Fungsi Navigasi ke Edit Profile ---
                           onPressed: () async {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const EditProfilePage(
-                                  initialName: 'Dells', 
+                                  initialName: 'Dells',
                                   initialBio: 'Penulis...',
                                   initialEmail: 'user@email.com',
                                 ),
                               ),
                             );
-                            
-                            // Merefresh halaman setelah kembali (jika ada data yang berubah)
+
                             if (result != null && mounted) {
                               setState(() {
-                                if (result['name'] != null) _userName = result['name'];
-                                if (result['bio'] != null) _userBio = result['bio'];
+                                if (result['name'] != null)
+                                  _userName = result['name'];
+                                if (result['bio'] != null)
+                                  _userBio = result['bio'];
                               });
                             }
                           },
-                          // ---------------------------------------------------
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _kTextColor,
                             foregroundColor: Colors.white,
@@ -623,18 +625,12 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundColor: Colors.grey.shade300, // Warna Abu
+                  backgroundColor: Colors.grey.shade300,
+                  // Ava tetap default
                   backgroundImage: _profileImageUrl != null
                       ? NetworkImage(_profileImageUrl!)
-                      : null,
-                  // PERBAIKAN 1: Ganti Inisial dengan Icon Person
-                  child: _profileImageUrl == null
-                      ? const Icon(
-                          Icons.person_rounded,
-                          size: 40,
-                          color: Colors.white,
-                        )
-                      : null,
+                      : const AssetImage('assets/images/ava_default.jpg')
+                          as ImageProvider,
                 ),
               ),
             ),
@@ -820,7 +816,6 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  // === WIDGET KARTU (UPDATED STYLE & ICON) ===
   Widget _buildModernContentCard(
     Map<String, dynamic> item,
     TextTheme textTheme, {
@@ -877,19 +872,15 @@ class _ProfilePageState extends State<ProfilePage>
                     children: [
                       Row(
                         children: [
-                          // PERBAIKAN 2: Avatar List jadi Icon
+                          // Ganti Icon Person -> ava_default
                           CircleAvatar(
                             radius: 10,
                             backgroundColor: Colors.grey.shade300,
-                            child: const Icon(
-                              Icons.person,
-                              size: 14,
-                              color: Colors.white,
-                            ),
+                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            item['authorName'] ?? 'Pengguna', // Pastikan fallback 'Pengguna'
+                            item['authorName'] ?? 'Pengguna', 
                             style: textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: _kTextColor,
@@ -960,8 +951,6 @@ class _ProfilePageState extends State<ProfilePage>
                             ),
                           ),
                           const Spacer(),
-
-                          // Menu Titik Tiga
                           GestureDetector(
                             onTap: onMenuTap,
                             child: const Icon(
@@ -975,39 +964,25 @@ class _ProfilePageState extends State<ProfilePage>
                     ],
                   ),
                 ),
-                if (item['thumbnail'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                        image: DecorationImage(
-                          image: NetworkImage(item['thumbnail']),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Colors.grey.shade300,
-                        size: 30,
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[100],
+                      // thumb_default tetap dipakai di sini (Tab Lembar)
+                      image: DecorationImage(
+                        image: item['thumbnail'] != null
+                            ? NetworkImage(item['thumbnail'])
+                            : const AssetImage('assets/images/thumb_default.jpg')
+                                as ImageProvider,
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),
@@ -1066,12 +1041,15 @@ class _ProfilePageState extends State<ProfilePage>
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
+                // === REVERT: KEMBALI KE ICON FOLDER UNTUK JILID ===
                 Container(
                   width: 70,
                   height: 70,
                   decoration: BoxDecoration(
                     color: _kPurpleColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
+                    // Logic: Kalau misal nanti ada fitur upload thumbnail Jilid, baru muncul. 
+                    // Kalau null, tidak pakai default image.
                     image: jilid['thumbnail'] != null
                         ? DecorationImage(
                             image: NetworkImage(jilid['thumbnail']),
@@ -1080,13 +1058,17 @@ class _ProfilePageState extends State<ProfilePage>
                         : null,
                   ),
                   child: jilid['thumbnail'] == null
-                      ? const Icon(
-                          Icons.folder_open_rounded,
-                          color: _kPurpleColor,
-                          size: 32,
+                      ? const Center(
+                          child: Icon(
+                            Icons.folder_open_rounded, // Icon Folder
+                            color: _kPurpleColor,
+                            size: 32,
+                          ),
                         )
                       : null,
                 ),
+                // ================================================
+                
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(

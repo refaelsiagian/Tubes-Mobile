@@ -110,8 +110,7 @@ class _BlogPageState extends State<BlogPage> {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme textTheme = Theme.of(context).textTheme;
-
+    // Helper variables
     String getAuthorName() => widget.blog['authorName']?.toString() ?? 'Pengguna';
     String getLikes() => widget.blog['likes']?.toString() ?? '0';
     String getCommentsCount() => widget.blog['comments']?.toString() ?? '3';
@@ -131,7 +130,7 @@ class _BlogPageState extends State<BlogPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // TOMBOL MARKAH (Hanya ada di sini)
+          // TOMBOL MARKAH
           IconButton(
             icon: Icon(
               _isBookmarked ? Icons.bookmark : Icons.bookmark_border_rounded,
@@ -163,7 +162,7 @@ class _BlogPageState extends State<BlogPage> {
                   CircleAvatar(
                     radius: 18,
                     backgroundColor: Colors.grey.shade200,
-                    child: const Icon(Icons.person, color: Colors.grey, size: 20),
+                    backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                   ),
                   const SizedBox(width: 10),
                   Column(
@@ -266,7 +265,7 @@ class _BlogPageState extends State<BlogPage> {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: Colors.grey.shade200,
-                    child: const Icon(Icons.person, size: 26, color: Colors.grey),
+                    backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -331,7 +330,7 @@ class _BlogPageState extends State<BlogPage> {
                         CircleAvatar(
                           radius: 12,
                           backgroundColor: Colors.grey.shade200,
-                          child: const Icon(Icons.person, size: 14, color: Colors.grey),
+                          backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                         ),
                         const SizedBox(width: 8),
                         const Text("Pengguna", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -387,7 +386,7 @@ class _BlogPageState extends State<BlogPage> {
                           CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.grey.shade200,
-                            child: const Icon(Icons.person, size: 14, color: Colors.grey),
+                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -441,7 +440,7 @@ class _BlogPageState extends State<BlogPage> {
         child: SafeArea(
           child: Row(
             children: [
-              // Tombol Like (KEMBALI KE ICON LOVE)
+              // Tombol Like
               GestureDetector(
                 onTap: () => setState(() => _isLiked = !_isLiked),
                 child: Row(
@@ -466,7 +465,7 @@ class _BlogPageState extends State<BlogPage> {
               
               const SizedBox(width: 24),
               
-              // Tombol Komentar (Scroll)
+              // Tombol Komentar
               GestureDetector(
                 onTap: _scrollToComments,
                 child: Row(
@@ -491,13 +490,12 @@ class _BlogPageState extends State<BlogPage> {
 
               const Spacer(),
 
-              // Tombol Share (MARKAH SUDAH DIHAPUS DARI SINI)
+              // Tombol Share
               const Icon(
                 Icons.share_outlined,
                 color: _kSubTextColor,
                 size: 20,
               ),
-              // Spacer kecil di kanan biar tidak nempel pinggir banget
               const SizedBox(width: 10), 
             ],
           ),

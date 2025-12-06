@@ -38,9 +38,7 @@ class _HomePageState extends State<HomePage> {
     final lembarBlogs = publishedLembar
         .map(
           (lembar) => {
-            // PERBAIKAN 1: Pastikan default name adalah 'Pengguna'
             'authorName': lembar['authorName'] ?? 'Pengguna',
-            // PERBAIKAN 2: Kosongkan inisial karena akan diganti Icon
             'authorInitials': '', 
             'title': lembar['title'] ?? 'Untitled',
             'snippet': lembar['snippet'] ?? '',
@@ -408,15 +406,10 @@ class _HomePageState extends State<HomePage> {
                       // Author Row
                       Row(
                         children: [
-                          // PERBAIKAN 3: Ganti CircleAvatar Teks menjadi Icon
                           CircleAvatar(
                             radius: 10,
-                            backgroundColor: Colors.grey.shade300, // Warna abu
-                            child: const Icon(
-                              Icons.person, // Icon orang
-                              size: 14,
-                              color: Colors.white, // Icon putih
-                            ),
+                            backgroundColor: Colors.grey.shade300,
+                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -555,39 +548,24 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 // Thumbnail
-                if (blog['thumbnail'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                        image: DecorationImage(
-                          image: NetworkImage(blog['thumbnail']),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                      ),
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Colors.grey[300],
-                        size: 30,
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[100],
+                      image: DecorationImage(
+                        image: blog['thumbnail'] != null
+                            ? NetworkImage(blog['thumbnail'])
+                            : const AssetImage('assets/images/thumb_default.jpg')
+                                as ImageProvider,
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),

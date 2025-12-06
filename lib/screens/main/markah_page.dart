@@ -308,14 +308,11 @@ class _MarkahPageState extends State<MarkahPage> {
                     children: [
                       Row(
                         children: [
+                          // UPDATE: Pakai ava_default.jpg
                           CircleAvatar(
                             radius: 10,
                             backgroundColor: Colors.grey[300],
-                            child: const Icon(
-                              Icons.person,
-                              size: 14,
-                              color: Colors.white,
-                            ),
+                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -393,40 +390,25 @@ class _MarkahPageState extends State<MarkahPage> {
                     ],
                   ),
                 ),
-                if (blog['thumbnail'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                        image: DecorationImage(
-                          image: NetworkImage(blog['thumbnail']),
-                          fit: BoxFit.cover,
-                          onError: (_, __) {},
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.grey[100],
-                      ),
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Colors.grey[300],
-                        size: 30,
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[100],
+                      image: DecorationImage(
+                        image: blog['thumbnail'] != null
+                            ? NetworkImage(blog['thumbnail'])
+                            : const AssetImage('assets/images/thumb_default.jpg')
+                                as ImageProvider,
+                        fit: BoxFit.cover,
+                        onError: (_, __) {},
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),

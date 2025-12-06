@@ -1,4 +1,4 @@
-import 'dart:io'; // TAMBAHAN PENTING
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
@@ -132,11 +132,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                         child: CircleAvatar(
                           radius: 12,
                           backgroundColor: Colors.grey.shade300,
-                          child: const Icon(
-                            Icons.person,
-                            size: 16,
-                            color: Colors.white,
-                          ),
+                          backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -217,7 +213,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Quill Editor (Read Only) untuk menampilkan gambar
+                  // Quill Editor (Read Only)
                   quill.QuillEditor(
                     controller: _quillController,
                     scrollController: ScrollController(),
@@ -226,8 +222,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                       autoFocus: false,
                       expands: false,
                       padding: EdgeInsets.zero,
-                      enableInteractiveSelection: false, // Read only behavior
-                      // PERBAIKAN: Tambahkan ImageEmbedBuilder
+                      enableInteractiveSelection: false, 
                       embedBuilders: [ImageEmbedBuilder()],
                     ),
                   ),
@@ -235,7 +230,6 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                   const SizedBox(height: 24),
                   const Divider(color: Color(0xFFEEEEEE), thickness: 1),
                   const SizedBox(height: 24),
-                  // ------------------------------
 
                   // PENGATURAN VISIBILITAS
                   Text(
@@ -292,6 +286,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                   ),
 
                   const SizedBox(height: 12),
+                  
                   GestureDetector(
                     onTap: _pickCoverImage,
                     child: Container(
@@ -612,7 +607,6 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
   }
 }
 
-// === KELAS BUILDER GAMBAR (SAMA DENGAN ADD LEMBAR) ===
 class ImageEmbedBuilder extends quill.EmbedBuilder {
   @override
   String get key => 'image';

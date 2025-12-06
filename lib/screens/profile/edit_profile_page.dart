@@ -1,4 +1,7 @@
+import 'dart:io'; // Penting untuk File
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart'; // Import Cropper
 
 // Konstanta Warna
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -29,12 +32,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _nameController;
   late TextEditingController _usernameController;
   late TextEditingController _bioController;
-
-  // Email tidak diedit langsung di textfield, jadi kita simpan stringnya saja
   late String _currentEmail;
 
-  final String _bannerImage = 'assets/images/banner.jpg';
-  final String? _profileImage = null;
+  // File untuk menampung hasil pick & crop
+  File? _pickedBanner;
+  File? _pickedProfile;
+
+  // UPDATED: Menggunakan banner_default.jpg
+  final String _defaultBanner = 'assets/images/banner_default.jpg';
+  final String? _defaultProfileUrl = null; 
 
   @override
   void initState() {
@@ -53,6 +59,58 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  // === LOGIC: AMBIL FOTO & CROP ===
+  Future<void> _pickImage({required bool isProfile}) async {
+    final picker = ImagePicker();
+    // 1. Ambil dari Galeri
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80, // Kompres sedikit biar ringan
+    );
+
+    if (pickedFile == null) return;
+
+    // 2. Proses Cropping
+    await _cropImage(File(pickedFile.path), isProfile);
+  }
+
+  Future<void> _cropImage(File imageFile, bool isProfile) async {
+    CroppedFile? croppedFile = await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      // Rasio: Profil = Kotak (1:1), Banner = Persegi Panjang (16:9)
+      aspectRatio: isProfile
+          ? const CropAspectRatio(ratioX: 1, ratioY: 1)
+          : const CropAspectRatio(ratioX: 16, ratioY: 9),
+      // Pengaturan Tampilan Cropper (Warna Ungu biar senada)
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: isProfile ? 'Potong Foto Profil' : 'Potong Sampul',
+          toolbarColor: _kPurpleColor,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: isProfile
+              ? CropAspectRatioPreset.square
+              : CropAspectRatioPreset.ratio16x9,
+          lockAspectRatio: true, // Kunci rasio biar user ga asal crop
+        ),
+        IOSUiSettings(
+          title: isProfile ? 'Potong Foto Profil' : 'Potong Sampul',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+
+    if (croppedFile != null) {
+      setState(() {
+        if (isProfile) {
+          _pickedProfile = File(croppedFile.path);
+        } else {
+          _pickedBanner = File(croppedFile.path);
+        }
+      });
+    }
+  }
+  // ===============================
+
   void _savePublicProfile() {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
@@ -61,11 +119,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
       return;
     }
 
+    // Kembalikan data (termasuk path foto baru jika ada)
     Navigator.pop(context, {
       'name': _nameController.text.trim(),
       'username': _usernameController.text.trim(),
       'bio': _bioController.text.trim(),
-      // Email dan password ditangani terpisah, tidak dikirim balik lewat sini
+      'profilePath': _pickedProfile?.path,
+      'bannerPath': _pickedBanner?.path,
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -77,11 +137,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  // --- LOGIC: UBAH PASSWORD (BOTTOM SHEET) ---
   void _showChangePasswordSheet() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Supaya bisa naik kalau keyboard muncul
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -90,9 +149,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  // --- LOGIC: UBAH EMAIL (BOTTOM SHEET) ---
   void _showChangeEmailSheet() {
-    // Implementasi serupa dengan password, butuh verifikasi pass lama
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -184,7 +241,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Menu Ubah Email
                   _buildSecurityActionTile(
                     title: 'Email Address',
                     value: _currentEmail,
@@ -194,10 +250,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
                   const SizedBox(height: 12),
 
-                  // Menu Ubah Password
                   _buildSecurityActionTile(
                     title: 'Password',
-                    value: '••••••••', // Masking
+                    value: '••••••••',
                     icon: Icons.lock_outline_rounded,
                     onTap: _showChangePasswordSheet,
                     isDestructive: false,
@@ -234,38 +289,50 @@ class _EditProfilePageState extends State<EditProfilePage> {
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          // Banner Image
+          // === BANNER IMAGE ===
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: 160,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                image: DecorationImage(
-                  image: AssetImage(_bannerImage),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.2),
-                    BlendMode.darken,
-                  ),
+            child: GestureDetector(
+              onTap: () =>
+                  _pickImage(isProfile: false), // Klik banner untuk ganti
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  image: _pickedBanner != null
+                      ? DecorationImage(
+                          image: FileImage(_pickedBanner!), // Tampilkan hasil crop
+                          fit: BoxFit.cover,
+                        )
+                      : DecorationImage(
+                          image: AssetImage(_defaultBanner), 
+                          fit: BoxFit.cover,
+                          colorFilter: ColorFilter.mode(
+                            Colors.black.withOpacity(0.2),
+                            BlendMode.darken,
+                          ),
+                        ),
                 ),
-              ),
-              child: Center(
-                child: IconButton(
-                  onPressed: () {}, // TODO: Banner picker
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black45,
-                    foregroundColor: Colors.white,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_outlined,
+                      color: Colors.white,
+                    ),
                   ),
-                  icon: const Icon(Icons.camera_alt_outlined),
                 ),
               ),
             ),
           ),
 
-          // Profile Avatar
+          // === PROFILE AVATAR ===
           Positioned(
             bottom: 0,
             left: 20,
@@ -279,25 +346,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                   child: CircleAvatar(
                     radius: 45,
-                    backgroundColor: Colors.grey.shade300, // Warna Abu
-                    backgroundImage: _profileImage != null
-                        ? NetworkImage(_profileImage!)
-                        : null,
-                    // PERBAIKAN: Ganti Inisial Text dengan Icon Person
-                    child: _profileImage == null
-                        ? const Icon(
-                            Icons.person_rounded,
-                            size: 45,
-                            color: Colors.white,
-                          )
-                        : null,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: _pickedProfile != null
+                        ? FileImage(_pickedProfile!) 
+                        : (_defaultProfileUrl != null
+                              ? NetworkImage(_defaultProfileUrl!)
+                              : const AssetImage('assets/images/ava_default.jpg') as ImageProvider),
+                    child: null,
                   ),
                 ),
                 Positioned(
                   bottom: 0,
                   right: 0,
                   child: GestureDetector(
-                    onTap: () {}, // TODO: Avatar picker
+                    onTap: () =>
+                        _pickImage(isProfile: true), // Klik ikon edit profile
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
