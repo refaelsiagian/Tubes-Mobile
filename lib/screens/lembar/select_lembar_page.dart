@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../data/services/lembar_storage.dart';
 
+// Konstanta Warna (Konsisten)
+const Color _kPurpleColor = Color(0xFF8D07C6);
+const Color _kGradientStart = Color(0xFF8D07C6);
+const Color _kGradientEnd = Color(0xFFDD01BE);
+const Color _kTextColor = Color(0xFF1A1A1A);
+const Color _kSubTextColor = Color(0xFF757575);
+
 class SelectLembarPage extends StatefulWidget {
   final List<Map<String, dynamic>> selectedLembar;
 
-  const SelectLembarPage({
-    super.key,
-    required this.selectedLembar,
-  });
+  const SelectLembarPage({super.key, required this.selectedLembar});
 
   @override
   State<SelectLembarPage> createState() => _SelectLembarPageState();
@@ -32,19 +36,23 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
     super.dispose();
   }
 
+  // === LOGIC (TIDAK DIUBAH) ===
   Future<void> _loadLembar() async {
-    // Load lembar from storage
     final stories = await LembarStorage.getAllLembar();
-    
-    // Convert to lembar format
-    _allLembar = stories.map((story) => {
-      'id': story['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      'title': story['title'] ?? 'Untitled',
-      'snippet': story['snippet'] ?? '',
-      'date': story['date'] ?? 'Just now',
-    }).toList();
 
-    // Initialize selected IDs from widget.selectedLembar
+    _allLembar = stories
+        .map(
+          (story) => {
+            'id':
+                story['id']?.toString() ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            'title': story['title'] ?? 'Untitled',
+            'snippet': story['snippet'] ?? '',
+            'date': story['date'] ?? 'Just now',
+          },
+        )
+        .toList();
+
     _selectedIds = widget.selectedLembar
         .map((lembar) => lembar['id']?.toString() ?? '')
         .where((id) => id.isNotEmpty)
@@ -61,14 +69,15 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
         _filteredLembar = List.from(_allLembar);
       } else {
         _filteredLembar = _allLembar
-            .where((lembar) =>
-                (lembar['title']?.toString().toLowerCase().contains(query) ??
-                    false) ||
-                (lembar['snippet']
-                        ?.toString()
-                        .toLowerCase()
-                        .contains(query) ??
-                    false))
+            .where(
+              (lembar) =>
+                  (lembar['title']?.toString().toLowerCase().contains(query) ??
+                      false) ||
+                  (lembar['snippet']?.toString().toLowerCase().contains(
+                        query,
+                      ) ??
+                      false),
+            )
             .toList();
       }
     });
@@ -89,7 +98,6 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
         .where((lembar) => _selectedIds.contains(lembar['id']?.toString()))
         .toList();
 
-    // Merge with existing selected lembar (avoid duplicates)
     final existingIds = widget.selectedLembar
         .map((l) => l['id']?.toString() ?? '')
         .where((id) => id.isNotEmpty)
@@ -103,135 +111,121 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
     Navigator.of(context).pop(result);
   }
 
+  // === UI MODERN ===
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(48, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Batal',
-                      style: theme.labelLarge?.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'Pilih Lembar',
-                    style: theme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 48), // Balance spacing
-                ],
+      // 1. App Bar Bersih
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: _kTextColor),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: Text(
+          'Pilih Lembar',
+          style: theme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: _kTextColor,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          // 2. Search Bar Modern
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            color: Colors.white,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE6E6E6)),
-
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.all(20),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Cari lembar...',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  hintText: 'Cari tulisanmu...',
+                  hintStyle: TextStyle(color: Colors.grey.shade500),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: Colors.grey.shade500,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF8D07C6),
-                      width: 2,
-                    ),
-                  ),
+                  border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 12,
+                    vertical: 14,
                   ),
                 ),
               ),
             ),
+          ),
 
-            // List Lembar
-            Expanded(
-              child: _filteredLembar.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Tidak ada lembar ditemukan',
-                        style: theme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+          // 3. List Lembar
+          Expanded(
+            child: _filteredLembar.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 48,
+                          color: Colors.grey.shade300,
                         ),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _filteredLembar.length,
-                      itemBuilder: (context, index) {
-                        final lembar = _filteredLembar[index];
-                        final id = lembar['id']?.toString() ?? '';
-                        final isSelected = _selectedIds.contains(id);
+                        const SizedBox(height: 16),
+                        Text(
+                          'Tidak ada lembar ditemukan',
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 0,
+                    ), // Full width divider
+                    itemCount: _filteredLembar.length,
+                    itemBuilder: (context, index) {
+                      final lembar = _filteredLembar[index];
+                      final id = lembar['id']?.toString() ?? '';
+                      final isSelected = _selectedIds.contains(id);
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? const Color(0xFF8D07C6)
-                                  : Colors.grey[300]!,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: InkWell(
+                      return Column(
+                        children: [
+                          InkWell(
                             onTap: () => _toggleSelection(id),
-                            borderRadius: BorderRadius.circular(8),
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
+                              ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Checkbox
-                                  Container(
+                                  // Custom Checkbox
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
                                     width: 24,
                                     height: 24,
+                                    margin: const EdgeInsets.only(
+                                      top: 2,
+                                    ), // Align with text title
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
+                                      color: isSelected
+                                          ? _kPurpleColor
+                                          : Colors.white,
                                       border: Border.all(
                                         color: isSelected
-                                            ? const Color(0xFF8D07C6)
-                                            : Colors.grey[400]!,
+                                            ? _kPurpleColor
+                                            : Colors.grey.shade300,
                                         width: 2,
                                       ),
-                                      color: isSelected
-                                          ? const Color(0xFF8D07C6)
-                                          : Colors.transparent,
                                     ),
                                     child: isSelected
                                         ? const Icon(
@@ -241,8 +235,10 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
                                           )
                                         : null,
                                   ),
+
                                   const SizedBox(width: 16),
-                                  // Content
+
+                                  // Content Info
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -250,30 +246,30 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
                                       children: [
                                         Text(
                                           lembar['title'] ?? 'Untitled',
-                                          style: theme.bodyMedium?.copyWith(
-                                            fontWeight: FontWeight.w600,
+                                          style: theme.bodyLarge?.copyWith(
+                                            fontWeight: FontWeight.w700,
                                             color: isSelected
-                                                ? const Color(0xFF8D07C6)
-                                                : Colors.black87,
+                                                ? _kPurpleColor
+                                                : _kTextColor,
                                           ),
-                                          maxLines: 2,
+                                          maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           lembar['snippet'] ?? '',
-                                          style: theme.bodySmall?.copyWith(
-                                            color: Colors.grey[600],
+                                          style: theme.bodyMedium?.copyWith(
+                                            color: _kSubTextColor,
+                                            height: 1.3,
                                           ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 6),
                                         Text(
                                           lembar['date'] ?? '',
-                                          style: theme.bodySmall?.copyWith(
-                                            color: Colors.grey[500],
-                                            fontSize: 12,
+                                          style: theme.labelSmall?.copyWith(
+                                            color: Colors.grey.shade400,
                                           ),
                                         ),
                                       ],
@@ -283,57 +279,76 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
                               ),
                             ),
                           ),
-                        );
-                      },
-                    ),
-            ),
+                          // Divider Halus
+                          if (index < _filteredLembar.length - 1)
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Colors.grey.shade100,
+                              indent: 60, // Indent agar sejajar teks
+                              endIndent: 20,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
 
-            // Tombol Tambahkan
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE6E6E6))),
-              ),
+          // 4. Floating Action Button Container
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: SafeArea(
               child: SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 52,
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(25),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8D07C6), Color(0xFFDD01BE)],
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: LinearGradient(
+                      colors: _selectedIds.isEmpty
+                          ? [Colors.grey.shade400, Colors.grey.shade400]
+                          : [_kGradientStart, _kGradientStart],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
                   ),
                   child: ElevatedButton(
-                    onPressed:
-                        _selectedIds.isEmpty ? null : _addSelected,
+                    onPressed: _selectedIds.isEmpty ? null : _addSelected,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(26),
                       ),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey[300],
+                      // Matikan efek disable default agar gradient grey terlihat
+                      disabledBackgroundColor: Colors.transparent,
+                      disabledForegroundColor: Colors.white,
                     ),
                     child: Text(
                       'Tambahkan (${_selectedIds.length})',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
-
