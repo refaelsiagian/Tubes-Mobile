@@ -28,13 +28,14 @@ class _ProfilePageState extends State<ProfilePage>
   String _selectedFilter = 'Public';
   static const int _currentNavIndex = 3;
 
-  // Sample user data
+  // Sample user data (FINAL STRUCTURE)
   String _userName = 'Dells';
   final String _userInitials = 'AT';
   String _userBio =
       'Penulis & Kreator yang fokus pada kesederhanaan & kegunaan.';
-  
-  // Tetap pakai banner default
+  String _userEmail = 'dells.adelia@example.com';
+  String _currentUsername = '@dells';
+
   final String? _bannerImageUrl = 'assets/images/banner_default.jpg';
 
   final String? _profileImageUrl = null;
@@ -518,6 +519,31 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
+  // LOGIC NAVIGASI BARU
+  void _onEditProfilePressed() async {
+    // Navigasi ke EditProfilePage dan mengirim semua data profil
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditProfilePage(
+          initialName: _userName,
+          initialUsername: _currentUsername, // Mengirim Username
+          initialBio: _userBio,
+          initialEmail: _userEmail, // Mengirim Email
+        ),
+      ),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        _userName = result['name'] ?? _userName;
+        _currentUsername = result['username'] ?? _currentUsername;
+        _userBio = result['bio'] ?? _userBio;
+      });
+      _loadStories(); 
+    }
+  }
+
+
   Widget _buildModernProfileHeader(BuildContext context, TextTheme textTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,27 +588,7 @@ class _ProfilePageState extends State<ProfilePage>
                         width: 38,
                         height: 38,
                         child: ElevatedButton(
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const EditProfilePage(
-                                  initialName: 'Dells',
-                                  initialBio: 'Penulis...',
-                                  initialEmail: 'user@email.com',
-                                ),
-                              ),
-                            );
-
-                            if (result != null && mounted) {
-                              setState(() {
-                                if (result['name'] != null)
-                                  _userName = result['name'];
-                                if (result['bio'] != null)
-                                  _userBio = result['bio'];
-                              });
-                            }
-                          },
+                          onPressed: _onEditProfilePressed, // Memanggil fungsi navigasi baru
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _kTextColor,
                             foregroundColor: Colors.white,
@@ -643,10 +649,18 @@ class _ProfilePageState extends State<ProfilePage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _userName,
+                _userName, 
                 style: textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: _kTextColor,
+                ),
+              ),
+              Text(
+                _currentUsername, 
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: _kSubTextColor,
+                  fontSize: 15,
                 ),
               ),
               const SizedBox(height: 12),
@@ -876,11 +890,13 @@ class _ProfilePageState extends State<ProfilePage>
                           CircleAvatar(
                             radius: 10,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                            backgroundImage: const AssetImage(
+                              'assets/images/ava_default.jpg',
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            item['authorName'] ?? 'Pengguna', 
+                            item['authorName'] ?? 'Pengguna',
                             style: textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: _kTextColor,
@@ -976,8 +992,10 @@ class _ProfilePageState extends State<ProfilePage>
                       image: DecorationImage(
                         image: item['thumbnail'] != null
                             ? NetworkImage(item['thumbnail'])
-                            : const AssetImage('assets/images/thumb_default.jpg')
-                                as ImageProvider,
+                            : const AssetImage(
+                                    'assets/images/thumb_default.jpg',
+                                  )
+                                  as ImageProvider,
                         fit: BoxFit.cover,
                       ),
                     ),

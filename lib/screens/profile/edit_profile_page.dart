@@ -219,7 +219,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   _buildTextField(
                     label: 'Username',
                     controller: _usernameController,
-                    prefix: '@',
+                    // Dihapus prefix '@' agar tidak double
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -407,8 +407,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
           controller: controller,
           maxLines: maxLines,
           style: const TextStyle(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500, 
             color: _kTextColor,
+            fontSize: 14.0, 
           ),
           decoration: InputDecoration(
             hintText: hint,
