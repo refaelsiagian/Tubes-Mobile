@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io'; 
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -8,7 +8,7 @@ const Color _kTextColor = Color(0xFF1A1A1A);
 const Color _kPurpleColor = Color(0xFF8D07C6);
 const Color _kBackgroundColor = Color(0xFFFFFFFF);
 const Color _kSubTextColor = Color(0xFF757575);
-const Color _kLikeColor = Color(0xFFFF4081); // Warna pink untuk like
+const Color _kLikeColor = Color(0xFFFF4081);
 
 class BlogPage extends StatefulWidget {
   final Map<String, dynamic> blog;
@@ -27,7 +27,10 @@ class _BlogPageState extends State<BlogPage> {
   bool _isLiked = false;
   bool _isBookmarked = false;
 
-  // Dummy Data Komentar
+  // Asset Default
+  final String _defaultAvatar = 'assets/images/ava_default.jpg';
+
+  // Dummy Data Komentar 
   final List<Map<String, String>> _dummyComments = [
     {
       'name': 'Sarah Wijaya',
@@ -50,6 +53,19 @@ class _BlogPageState extends State<BlogPage> {
   void initState() {
     super.initState();
     _loadContent();
+  }
+
+  ImageProvider _getSmartImage(String? path, String defaultAsset) {
+    if (path == null || path.isEmpty) {
+      return AssetImage(defaultAsset);
+    }
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    }
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    }
+    return FileImage(File(path));
   }
 
   void _loadContent() {
@@ -88,7 +104,6 @@ class _BlogPageState extends State<BlogPage> {
         _quillController = quill.QuillController.basic();
       }
     } catch (e) {
-      debugPrint("Error loading document: $e");
       _quillController = quill.QuillController.basic();
     }
   }
@@ -110,11 +125,9 @@ class _BlogPageState extends State<BlogPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Helper variables
     String getAuthorName() => widget.blog['authorName']?.toString() ?? 'Pengguna';
     String getLikes() => widget.blog['likes']?.toString() ?? '0';
     String getCommentsCount() => widget.blog['comments']?.toString() ?? '3';
-    String? getThumbnail() => widget.blog['thumbnail'];
     String getDate() => widget.blog['date']?.toString() ?? 'Baru saja';
 
     final List tags = (widget.blog['tags'] is List) ? widget.blog['tags'] as List : [];
@@ -130,7 +143,6 @@ class _BlogPageState extends State<BlogPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // TOMBOL MARKAH
           IconButton(
             icon: Icon(
               _isBookmarked ? Icons.bookmark : Icons.bookmark_border_rounded,
@@ -152,17 +164,14 @@ class _BlogPageState extends State<BlogPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- BAGIAN KONTEN BLOG ---
-            
-            // 1. Header Penulis
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 18,
+                    radius: 18, 
                     backgroundColor: Colors.grey.shade200,
-                    backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                    backgroundImage: _getSmartImage(null, _defaultAvatar), 
                   ),
                   const SizedBox(width: 10),
                   Column(
@@ -194,24 +203,7 @@ class _BlogPageState extends State<BlogPage> {
               ),
             ),
 
-            // 2. Thumbnail
-            if (getThumbnail() != null)
-              Container(
-                width: double.infinity,
-                height: 220,
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                  image: DecorationImage(
-                    image: NetworkImage(getThumbnail()!),
-                    fit: BoxFit.cover,
-                    onError: (exception, stackTrace) {},
-                  ),
-                ),
-              ),
-
-            // 3. Konten Rich Text
+            // --- 2. KONTEN RICH TEXT ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: quill.QuillEditor(
@@ -237,7 +229,7 @@ class _BlogPageState extends State<BlogPage> {
                   children: tags.map((tag) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Colors.grey.shade100, 
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -250,7 +242,7 @@ class _BlogPageState extends State<BlogPage> {
             
             const SizedBox(height: 40),
             
-            // 5. Profil Penulis Bawah
+            // --- 4. PROFIL PENULIS BAWAH (Minimalis Border) ---
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.symmetric(vertical: 20),
@@ -263,9 +255,9 @@ class _BlogPageState extends State<BlogPage> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 24,
+                    radius: 24, 
                     backgroundColor: Colors.grey.shade200,
-                    backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                    backgroundImage: _getSmartImage(null, _defaultAvatar), // Smart Image
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -305,7 +297,7 @@ class _BlogPageState extends State<BlogPage> {
             
             const SizedBox(height: 16),
 
-            // INPUT KOMENTAR (DI ATAS LIST)
+            // INPUT KOMENTAR (Style Box Shadow)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -330,7 +322,7 @@ class _BlogPageState extends State<BlogPage> {
                         CircleAvatar(
                           radius: 12,
                           backgroundColor: Colors.grey.shade200,
-                          backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                          backgroundImage: _getSmartImage(null, _defaultAvatar), // Smart Image
                         ),
                         const SizedBox(width: 8),
                         const Text("Pengguna", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -386,7 +378,7 @@ class _BlogPageState extends State<BlogPage> {
                           CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.grey.shade200,
-                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                            backgroundImage: _getSmartImage(null, _defaultAvatar), // Smart Image
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -497,6 +489,15 @@ class _BlogPageState extends State<BlogPage> {
                 size: 20,
               ),
               const SizedBox(width: 10), 
+              // Tombol Bookmark
+              GestureDetector(
+                 onTap: () => setState(() => _isBookmarked = !_isBookmarked),
+                 child: Icon(
+                  _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  color: _isBookmarked ? _kTextColor : _kSubTextColor,
+                  size: 20,
+                ),
+              ),
             ],
           ),
         ),

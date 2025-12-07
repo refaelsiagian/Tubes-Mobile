@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'blog_page.dart';
 import '../../widgets/bottom_nav_bar.dart';
@@ -25,6 +26,10 @@ class _HomePageState extends State<HomePage> {
   static const int _currentNavIndex = 0;
 
   List<Map<String, dynamic>> _blogs = [];
+
+
+  final String _defaultAvatarAsset = 'assets/images/ava_default.jpg';
+  final String _defaultThumbAsset = 'assets/images/thumb_default.jpg';
 
   @override
   void initState() {
@@ -56,6 +61,19 @@ class _HomePageState extends State<HomePage> {
       _blogs = lembarBlogs.reversed.toList();
     });
   }
+  ImageProvider _getSmartImage(String? path, String defaultAsset) {
+    if (path == null || path.isEmpty) {
+      return AssetImage(defaultAsset);
+    }
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    }
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    }
+    return FileImage(File(path));
+  }
+
 
   String _formatDate(String? dateString) {
     if (dateString == null) return 'Baru saja';
@@ -409,7 +427,7 @@ class _HomePageState extends State<HomePage> {
                           CircleAvatar(
                             radius: 10,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                            backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -557,10 +575,7 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[100],
                       image: DecorationImage(
-                        image: blog['thumbnail'] != null
-                            ? NetworkImage(blog['thumbnail'])
-                            : const AssetImage('assets/images/thumb_default.jpg')
-                                as ImageProvider,
+                        image: _getSmartImage(blog['thumbnail'], _defaultThumbAsset),
                         fit: BoxFit.cover,
                       ),
                     ),

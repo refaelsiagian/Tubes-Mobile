@@ -1,3 +1,4 @@
+import 'dart:io'; // WAJIB ADA
 import 'package:flutter/material.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
@@ -23,6 +24,9 @@ class _MarkahPageState extends State<MarkahPage> {
 
   List<Map<String, dynamic>> _bookmarkedBlogsList = [];
   bool _isLoading = true;
+
+  final String _defaultAvatarAsset = 'assets/images/ava_default.jpg';
+  final String _defaultThumbAsset = 'assets/images/thumb_default.jpg';
 
   @override
   void initState() {
@@ -57,6 +61,20 @@ class _MarkahPageState extends State<MarkahPage> {
         _isLoading = false;
       });
     }
+  }
+
+  // === FUNGSI PINTAR GAMBAR ===
+  ImageProvider _getSmartImage(String? path, String defaultAsset) {
+    if (path == null || path.isEmpty) {
+      return AssetImage(defaultAsset);
+    }
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    }
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    }
+    return FileImage(File(path));
   }
 
   String _formatDate(String? dateString) {
@@ -308,11 +326,11 @@ class _MarkahPageState extends State<MarkahPage> {
                     children: [
                       Row(
                         children: [
-                          // UPDATE: Pakai ava_default.jpg
+
                           CircleAvatar(
                             radius: 10,
-                            backgroundColor: Colors.grey[300],
-                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
+                            backgroundColor: Colors.grey.shade300,
+                            backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -355,28 +373,60 @@ class _MarkahPageState extends State<MarkahPage> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      
                       const SizedBox(height: 12),
+                      
                       Row(
                         children: [
-                          InkWell(
+                          // Like (Hanya Ikon)
+                          Icon(
+                            Icons.favorite_border_rounded,
+                            size: 16,
+                            color: _kSubTextColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            blog['likes']?.toString() ?? '0',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Komentar
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 16,
+                            color: _kSubTextColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            blog['comments']?.toString() ?? '0',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          
+                          GestureDetector(
                             onTap: () {
                               setState(() {
                                 _bookmarkedBlogsList.remove(blog);
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("Markah dihapus"),
+                                  content: Text("Dihapus dari Markah"),
                                   duration: Duration(seconds: 1),
                                 ),
                               );
                             },
                             child: const Icon(
-                              Icons.bookmark_rounded,
+                              Icons.bookmark_rounded, 
                               size: 20,
-                              color: _kPurpleColor,
+                              color: _kPurpleColor, 
                             ),
                           ),
-                          const Spacer(),
+                          
+                          const SizedBox(width: 12),
                           GestureDetector(
                             onTap: () => _showMarkahMenu(context, blog),
                             child: const Icon(
@@ -399,10 +449,7 @@ class _MarkahPageState extends State<MarkahPage> {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[100],
                       image: DecorationImage(
-                        image: blog['thumbnail'] != null
-                            ? NetworkImage(blog['thumbnail'])
-                            : const AssetImage('assets/images/thumb_default.jpg')
-                                as ImageProvider,
+                        image: _getSmartImage(blog['thumbnail'], _defaultThumbAsset),
                         fit: BoxFit.cover,
                         onError: (_, __) {},
                       ),
