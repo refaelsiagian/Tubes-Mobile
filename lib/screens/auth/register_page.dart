@@ -35,7 +35,7 @@ class RegisterPage extends StatelessWidget {
             // Input Nama pengguna
             _buildTextField(
               label: 'Nama pengguna',
-              hint: 'Masukkan nama lengkap',
+              hint: 'Masukkan nama pengguna',
               context: context,
             ),
             const SizedBox(height: 16),

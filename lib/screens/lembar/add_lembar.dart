@@ -29,40 +29,67 @@ class _AddLembarPageState extends State<AddLembarPage> {
     _controller.addListener(_handleTextChange);
   }
 
+  // === LOGIKA AUTO BOLD JUDUL & RESET SNIPPET ===
   void _handleTextChange() {
-    if (_isFormatting) return; // Prevent recursive formatting
+    if (_isFormatting) return;
 
     final selection = _controller.selection;
     if (!selection.isValid) return;
 
-    // Only apply automatic formatting to the first line when the document is first created
-    // or when the first line is empty and being typed into
     final document = _controller.document;
     final fullText = document.toPlainText();
-    final firstNewlineIndex = fullText.indexOf('\n');
-    final isFirstLine = firstNewlineIndex == -1 || selection.start <= firstNewlineIndex;
+    
+    // Cek apakah ada gambar di karakter pertama
+    final bool startsWithImage = fullText.isNotEmpty && fullText.codeUnitAt(0) == 65532;
 
-    if (isFirstLine && fullText.isNotEmpty) {
-      final firstLineLength = firstNewlineIndex == -1 ? fullText.length : firstNewlineIndex;
-      
-      // Only apply formatting if the first line doesn't have any formatting yet
-      final firstLineStyle = _controller.getSelectionStyle();
-      final hasH2 = firstLineStyle.attributes.containsKey(quill.Attribute.h2.key);
-      final hasBold = firstLineStyle.attributes.containsKey(quill.Attribute.bold.key);
-      
-      if (!hasH2 || !hasBold) {
-        _isFormatting = true;
-        // Apply formats only if they're not already applied
-        if (!hasH2) {
-          _controller.formatText(0, firstLineLength, quill.Attribute.h2);
+    // Tentukan baris mana yang dianggap "Judul"
+    final lines = fullText.split('\n');
+    int titleLineIndex = startsWithImage ? 1 : 0; 
+
+    // Cari posisi kursor ada di baris ke berapa
+    int currentLineIndex = 0;
+    int charCount = 0;
+    for (int i = 0; i < lines.length; i++) {
+      if (selection.start <= charCount + lines[i].length) {
+        currentLineIndex = i;
+        break;
+      }
+      charCount += lines[i].length + 1; 
+    }
+
+    _isFormatting = true;
+
+    // 1. Jika kursor di Baris Judul -> Paksa H2 & Bold
+    if (currentLineIndex == titleLineIndex) {
+      final lineText = lines[titleLineIndex].trim();
+      if (lineText.isNotEmpty) {
+        final currentStyle = _controller.getSelectionStyle();
+        final hasH2 = currentStyle.attributes.containsKey(quill.Attribute.h2.key);
+        final hasBold = currentStyle.attributes.containsKey(quill.Attribute.bold.key);
+
+        if (!hasH2 || !hasBold) {
+          final lineStart = charCount;
+          final lineLength = lines[titleLineIndex].length;
+          if (lineLength > 0) {
+             _controller.formatText(lineStart, lineLength, quill.Attribute.h2);
+             _controller.formatText(lineStart, lineLength, quill.Attribute.bold);
+          }
         }
-        if (!hasBold) {
-          _controller.formatText(0, firstLineLength, quill.Attribute.bold);
-        }
-        _isFormatting = false;
+      }
+    } 
+    // 2. Jika kursor di Baris SETELAH Judul (Snippet/Isi) -> Paksa Hapus Bold & H2
+    else if (currentLineIndex > titleLineIndex) {
+      final currentStyle = _controller.getSelectionStyle();
+      
+      if (currentStyle.attributes.containsKey(quill.Attribute.header.key) ||
+          currentStyle.attributes.containsKey(quill.Attribute.bold.key)) {
+        
+        _controller.formatSelection(quill.Attribute.clone(quill.Attribute.header, null));
+        _controller.formatSelection(quill.Attribute.clone(quill.Attribute.bold, null));
       }
     }
-    // Don't automatically remove formatting from other lines to allow manual formatting
+
+    _isFormatting = false;
   }
 
   @override
@@ -75,6 +102,10 @@ class _AddLembarPageState extends State<AddLembarPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
+
+    // Style dasar
+    final baseTextStyle = theme.bodyMedium ?? const TextStyle(fontSize: 16);
+    final titleTextStyle = theme.headlineSmall ?? const TextStyle(fontSize: 24, fontWeight: FontWeight.bold);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -124,7 +155,7 @@ class _AddLembarPageState extends State<AddLembarPage> {
 
             const Divider(height: 1, color: Color(0xFFE6E6E6)),
 
-            // 🔹 Editor
+            // 🔹 Editor dengan Styling Jarak
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -135,6 +166,39 @@ class _AddLembarPageState extends State<AddLembarPage> {
                   controller: _controller,
                   scrollController: ScrollController(),
                   focusNode: _focusNode,
+                  config: quill.QuillEditorConfig(
+                    placeholder: 'Mulai menulis...',
+                    autoFocus: true,
+                    padding: EdgeInsets.zero,
+                    embedBuilders: [
+                      ImageEmbedBuilder(),
+                    ],
+                    // === PERBAIKAN STYLING: JARAK LEBIH RAPAT ===
+                    customStyles: quill.DefaultStyles(
+                      // Style Judul (H2)
+                      h2: quill.DefaultTextBlockStyle(
+                        titleTextStyle.copyWith(
+                          fontWeight: FontWeight.bold,
+                          height: 1.2, 
+                        ),
+                        const quill.HorizontalSpacing(0, 0), 
+                        const quill.VerticalSpacing(8, 4), // Jarak Atas 8, Bawah 4 (Lebih Rapat)
+                        const quill.VerticalSpacing(0, 0),
+                        null, 
+                      ),
+                      // Style Isi (Paragraph)
+                      paragraph: quill.DefaultTextBlockStyle(
+                        baseTextStyle.copyWith(
+                          height: 1.5,
+                        ),
+                        const quill.HorizontalSpacing(0, 0),
+                        const quill.VerticalSpacing(4, 4), // Jarak antar paragraf 4 (Lebih Rapat)
+                        const quill.VerticalSpacing(0, 0),   
+                        null,                                
+                      ),
+                    ),
+                    // ============================================
+                  ),
                 ),
               ),
             ),
@@ -151,7 +215,7 @@ class _AddLembarPageState extends State<AddLembarPage> {
           border: Border(top: BorderSide(color: Color(0xFFE6E6E6))),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), // Padding horizontal ditambah
           child: _EditorToolbar(
             controller: _controller,
             onPickImage: _pickAndInsertImage,
@@ -172,28 +236,38 @@ class _AddLembarPageState extends State<AddLembarPage> {
 
   void _onSavePressed() {
     final docJson = _controller.document.toDelta().toJson();
-    // Extract title and content from document
     final document = _controller.document;
-    String title = 'Do it anyway'; // Default title
-    String content =
-        'Ini adalah isi dari lembar yang telah kamu buat'; // Default content
+    
+    String title = 'Tanpa Judul';
+    String content = 'Tidak ada konten tambahan.';
 
-    // Try to extract title from first line if it's a heading
     if (document.length > 0) {
-      final firstLine = document.toPlainText().split('\n').first;
-      if (firstLine.isNotEmpty) {
-        title = firstLine;
-      }
-      // Get full content
-      final fullContent = document.toPlainText();
-      if (fullContent.isNotEmpty) {
-        final lines = fullContent.split('\n');
-        if (lines.length > 1) {
-          content = lines.skip(1).join('\n').trim();
-          if (content.isEmpty) {
-            content = 'Ini adalah isi dari lembar yang telah kamu buat';
-          }
+      final plainText = document.toPlainText();
+      final lines = plainText.split('\n');
+      
+      String? foundTitle;
+      int titleIndex = -1;
+
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isNotEmpty && line.codeUnitAt(0) != 65532) { 
+          foundTitle = line;
+          titleIndex = i;
+          break; 
         }
+      }
+
+      if (foundTitle != null) {
+        title = foundTitle;
+      }
+
+      if (titleIndex != -1 && titleIndex + 1 < lines.length) {
+        final rawContent = lines.skip(titleIndex + 1).join('\n').trim();
+        if (rawContent.isNotEmpty) {
+          content = rawContent;
+        }
+      } else if (titleIndex == -1 && plainText.trim().isNotEmpty) {
+         content = "Konten Gambar";
       }
     }
 
@@ -222,13 +296,56 @@ class _AddLembarPageState extends State<AddLembarPage> {
   }
 
   Future<void> _pickAndInsertImage() async {
+    _focusNode.unfocus();
+
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+
+    if (picked == null || !mounted) return;
+
     final savedPath = await _saveImage(File(picked.path));
-    final selection = _controller.selection;
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
+
+    int index = _controller.selection.baseOffset;
+    int length = _controller.selection.extentOffset - index;
+
+    if (index < 0) {
+      index = 0; 
+      length = 0;
+    }
+
     final embed = quill.BlockEmbed.image(savedPath);
-    _controller.replaceText(selection.baseOffset, 0, embed, selection);
+    
+    // 1. Masukkan Gambar
+    _controller.replaceText(index, length, embed, null);
+
+    // 2. Masukkan Enter (\n) setelah gambar
+    _controller.document.insert(index + 1, '\n');
+
+    // 3. Pindah kursor
+    final newCursorOffset = index + 2;
+    setState(() {
+      _controller.updateSelection(
+        TextSelection.collapsed(offset: newCursorOffset),
+        quill.ChangeSource.local,
+      );
+    });
+
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // 4. LOGIKA FORMATTING KHUSUS GAMBAR:
+    if (index == 0) {
+      _controller.formatSelection(quill.Attribute.h2);
+      _controller.formatSelection(quill.Attribute.bold);
+    } else {
+      _controller.formatSelection(quill.Attribute.clone(quill.Attribute.header, null));
+      _controller.formatSelection(quill.Attribute.clone(quill.Attribute.bold, null));
+    }
+    
+    FocusScope.of(context).requestFocus(_focusNode);
   }
 
   Future<String> _saveImage(File file) async {
@@ -240,30 +357,34 @@ class _AddLembarPageState extends State<AddLembarPage> {
   }
 }
 
-class _GradientPillButton extends StatelessWidget {
-  final String text;
-  final VoidCallback onPressed;
-
-  const _GradientPillButton({required this.text, required this.onPressed});
+class ImageEmbedBuilder extends quill.EmbedBuilder {
+  @override
+  String get key => 'image';
 
   @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        minimumSize: const Size(88, 32),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF8D07C6), // Purple color matching your theme
+  Widget build(
+    BuildContext context,
+    quill.EmbedContext embedContext,
+  ) {
+    final imageUrl = embedContext.node.value.data;
+    if (imageUrl is String && imageUrl.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Image.file(
+          File(imageUrl),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 200,
+              color: Colors.grey[200],
+              child: const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey)),
+            );
+          },
         ),
-      ),
-    );
+      );
+    }
+    return const SizedBox();
   }
 }
 
@@ -315,6 +436,7 @@ class _ToggleAttributeButton extends StatelessWidget {
   }
 }
 
+// === UPDATED EDITOR TOOLBAR ===
 class _EditorToolbar extends StatelessWidget {
   final quill.QuillController controller;
   final Future<void> Function() onPickImage;
@@ -338,39 +460,56 @@ class _EditorToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _ToggleAttributeButton(
-            controller: controller,
-            icon: Icons.format_bold,
-            attribute: quill.Attribute.bold,
+    // Kita gunakan Row untuk layouting
+    return Row(
+      children: [
+        // Bagian Kiri: Toolbar Text (Scrollable)
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _ToggleAttributeButton(
+                  controller: controller,
+                  icon: Icons.format_bold,
+                  attribute: quill.Attribute.bold,
+                ),
+                _ToggleAttributeButton(
+                  controller: controller,
+                  icon: Icons.format_italic,
+                  attribute: quill.Attribute.italic,
+                ),
+                _ToggleAttributeButton(
+                  controller: controller,
+                  icon: Icons.format_underline,
+                  attribute: quill.Attribute.underline,
+                ),
+                const SizedBox(width: 8),
+                _ToolbarButton(icon: Icons.format_quote, onPressed: onInsertQuote),
+                _ToolbarButton(
+                  icon: Icons.format_list_bulleted,
+                  onPressed: onInsertBullets,
+                ),
+                _ToolbarButton(
+                  icon: Icons.format_list_numbered,
+                  onPressed: onInsertNumbers,
+                ),
+              ],
+            ),
           ),
-          _ToggleAttributeButton(
-            controller: controller,
-            icon: Icons.format_italic,
-            attribute: quill.Attribute.italic,
-          ),
-          _ToggleAttributeButton(
-            controller: controller,
-            icon: Icons.format_underline,
-            attribute: quill.Attribute.underline,
-          ),
-          const SizedBox(width: 8),
-          _ToolbarButton(icon: Icons.format_quote, onPressed: onInsertQuote),
-          _ToolbarButton(
-            icon: Icons.format_list_bulleted,
-            onPressed: onInsertBullets,
-          ),
-          _ToolbarButton(
-            icon: Icons.format_list_numbered,
-            onPressed: onInsertNumbers,
-          ),
-          _ToolbarButton(icon: Icons.image_outlined, onPressed: onPickImage),
-        ],
-      ),
+        ),
+        
+        // Pemisah Tipis (Opsional, agar terlihat ada batas)
+        Container(
+          height: 24,
+          width: 1,
+          color: Colors.grey.shade300,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+
+        // Bagian Kanan: Tombol Gambar (Fixed di pojok kanan)
+        _ToolbarButton(icon: Icons.image_outlined, onPressed: onPickImage),
+      ],
     );
   }
 }

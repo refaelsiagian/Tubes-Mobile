@@ -5,9 +5,11 @@ import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
 import '../../data/services/lembar_storage.dart';
 
-const Color _kTextColor = Color(0xFF333333);
-const Color _kPurpleColor = Color(0xFF8D07C6); // Warna aksen ungu baru
-const Color _kBackgroundColor = Color(0xFFFFFFFF);
+// Konstanta Warna Modern
+const Color _kTextColor = Color(0xFF1A1A1A);
+const Color _kPurpleColor = Color(0xFF8D07C6);
+const Color _kBackgroundColor = Colors.white;
+const Color _kSubTextColor = Color(0xFF757575);
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,11 +19,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // State untuk like dan bookmark per blog
   final Map<int, bool> _likedBlogs = {};
   final Map<int, bool> _bookmarkedBlogs = {};
-  bool _isNotificationClicked = false; // State untuk notifikasi
-  static const int _currentNavIndex = 0; // Home page index
+  bool _isNotificationClicked = false;
+  static const int _currentNavIndex = 0;
 
   List<Map<String, dynamic>> _blogs = [];
 
@@ -32,15 +33,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadBlogs() async {
-    // Load published lembar from storage
     final publishedLembar = await LembarStorage.getPublishedLembar();
 
-    // Convert to blog format and combine with sample data
     final lembarBlogs = publishedLembar
         .map(
           (lembar) => {
             'authorName': lembar['authorName'] ?? 'Pengguna',
-            'authorInitials': lembar['authorInitials'] ?? 'PG',
+            'authorInitials': '', 
             'title': lembar['title'] ?? 'Untitled',
             'snippet': lembar['snippet'] ?? '',
             'thumbnail': lembar['thumbnail'],
@@ -53,49 +52,13 @@ class _HomePageState extends State<HomePage> {
         )
         .toList();
 
-    // Sample blog data (fallback)
-    final sampleBlogs = [
-      {
-        'authorName': 'John Doe',
-        'authorInitials': 'JD',
-        'title': 'Lorem ipsum',
-        'snippet': 'Lorem ipsum dolor sit amet...',
-        'thumbnail': null,
-        'date': '6d ago',
-        'likes': '1.5K',
-        'comments': '14',
-      },
-      {
-        'authorName': 'John Doe',
-        'authorInitials': 'JD',
-        'title': 'Lorem ipsum',
-        'snippet': 'Lorem ipsum dolor sit amet...',
-        'thumbnail': null,
-        'date': 'Jul 28',
-        'likes': '17K',
-        'comments': '683',
-        'verified': true,
-      },
-      {
-        'authorName': 'John Doe',
-        'authorInitials': 'JD',
-        'title': 'Lorem ipsum',
-        'snippet': 'Lorem ipsum dolor sit amet...',
-        'thumbnail': null,
-        'date': '3d ago',
-        'likes': '892',
-        'comments': '45',
-      },
-    ];
-
     setState(() {
-      // Combine published lembar with sample blogs
-      _blogs = [...lembarBlogs, ...sampleBlogs];
+      _blogs = lembarBlogs.reversed.toList();
     });
   }
 
   String _formatDate(String? dateString) {
-    if (dateString == null) return 'Just now';
+    if (dateString == null) return 'Baru saja';
     try {
       final date = DateTime.parse(dateString);
       final now = DateTime.now();
@@ -104,23 +67,23 @@ class _HomePageState extends State<HomePage> {
       if (difference.inDays == 0) {
         if (difference.inHours == 0) {
           if (difference.inMinutes == 0) {
-            return 'Just now';
+            return 'Baru saja';
           }
-          return '${difference.inMinutes}m ago';
+          return '${difference.inMinutes}m lalu';
         }
-        return '${difference.inHours}h ago';
+        return '${difference.inHours}j lalu';
       } else if (difference.inDays == 1) {
-        return '1d ago';
+        return 'Kemarin';
       } else if (difference.inDays < 7) {
-        return '${difference.inDays}d ago';
+        return '${difference.inDays}h lalu';
       } else if (difference.inDays < 30) {
         final weeks = (difference.inDays / 7).floor();
-        return '${weeks}w ago';
+        return '${weeks}w lalu';
       } else {
         return '${date.day}/${date.month}/${date.year}';
       }
     } catch (e) {
-      return 'Just now';
+      return 'Baru saja';
     }
   }
 
@@ -140,84 +103,122 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // === HEADER MODERN ===
             Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 16.0,
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 10.0, // Dikurangi dari 16.0
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1.0),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Logo Lembar
-                    Row(
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  RichText(
+                    text: TextSpan(
                       children: [
-                        Image.asset(
-                          'assets/images/logo1.png',
-                          width: 24, // Dikurangi dari 32
-                          height: 24, // Dikurangi dari 32
-                        ),
-                        const SizedBox(width: 6), // Dikurangi dari 8
-                        Text(
-                          'Lembar.',
+                        TextSpan(
+                          text: 'Lembar',
                           style: textTheme.headlineMedium?.copyWith(
-                            fontSize: 18, // Diperkecil
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: _kTextColor,
+                            letterSpacing: -0.5,
+                            fontFamily: 'Serif',
+                          ),
+                        ),
+                        const TextSpan(
+                          text: '.',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: _kPurpleColor,
                           ),
                         ),
                       ],
                     ),
-                    // Notification Icon - transparan, warna berubah saat diklik
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () {
+                  ),
+                  Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      IconButton(
+                        onPressed: () {
                           setState(() {
                             _isNotificationClicked = !_isNotificationClicked;
                           });
                         },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.notifications_outlined,
-                            color: _isNotificationClicked
-                                ? _kPurpleColor
-                                : _kTextColor,
-                            size: 22,
+                        icon: Icon(
+                          _isNotificationClicked
+                              ? Icons.notifications_rounded
+                              : Icons.notifications_none_rounded,
+                          color: _isNotificationClicked
+                              ? _kPurpleColor
+                              : _kTextColor,
+                          size: 28,
+                        ),
+                        splashRadius: 24,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      if (!_isNotificationClicked)
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            // Blog Feed
+
+            // === BLOG FEED ===
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 16.0,
-                ),
-                itemCount: _blogs.length,
-                itemBuilder: (context, index) {
-                  final blog = _blogs[index];
-                  return _buildBlogCard(blog, textTheme, primaryColor);
-                },
-              ),
+              child: _blogs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.feed_outlined,
+                            size: 64,
+                            color: Colors.grey[200],
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "Belum ada tulisan terbaru",
+                            style: TextStyle(color: _kSubTextColor),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                        vertical: 16.0,
+                      ),
+                      itemCount: _blogs.length,
+                      itemBuilder: (context, index) {
+                        final blog = _blogs[index];
+                        return _buildModernBlogCard(
+                          blog,
+                          textTheme,
+                          primaryColor,
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -230,145 +231,120 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // === HELPER METHODS: MODERN MENU DESIGN ===
+
   void _showBlogMenu(BuildContext context, Map<String, dynamic> blog) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (BuildContext context) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12), // Tambah jarak di atas
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.block, color: Colors.grey, size: 20),
-                title: const Text(
-                  'Tidak tertarik',
-                  style: TextStyle(fontSize: 14),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag Handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle tidak tertarik
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.bookmark_border,
-                  color: Colors.grey,
-                  size: 20,
+
+                // Item 1: Tidak Tertarik
+                _buildMenuItem(
+                  icon: Icons.remove_circle_outline_rounded,
+                  label: 'Tidak tertarik',
+                  color: Colors.redAccent,
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
                 ),
-                title: const Text(
-                  'Tambahkan ke markah',
-                  style: TextStyle(fontSize: 14),
+
+                const SizedBox(height: 12),
+                // Item 2: Bookmark
+                _buildMenuItem(
+                  icon: Icons.bookmark_border_rounded,
+                  label: 'Simpan ke Markah',
+                  color: _kPurpleColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle tambah ke markah
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.share, color: Colors.grey, size: 20),
-                title: const Text('Bagikan', style: TextStyle(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle bagikan
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.person_add_outlined,
-                  color: Colors.grey,
-                  size: 20,
+
+                const SizedBox(height: 12),
+
+                // Item 3: Share
+                _buildMenuItem(
+                  icon: Icons.share_rounded,
+                  label: 'Bagikan Tulisan',
+                  color: Colors.blueAccent,
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
                 ),
-                title: const Text(
-                  'Ikuti penulis',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle ikuti penulis
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.volume_off_outlined,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Bisukan penulis',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle bisukan penulis
-                },
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFDDDDDD),
-                indent: 56,
-                endIndent: 56,
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(
-                  Icons.flag_outlined,
-                  color: Colors.red,
-                  size: 20,
-                ),
-                title: const Text(
-                  'Laporkan blog',
-                  style: TextStyle(color: Colors.red, fontSize: 14),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Handle laporkan blog
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildBlogCard(
+  // Widget Item Menu Modern
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _kTextColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernBlogCard(
     Map<String, dynamic> blog,
     TextTheme textTheme,
     Color primaryColor,
@@ -376,223 +352,225 @@ class _HomePageState extends State<HomePage> {
     final blogIndex = _blogs.indexOf(blog);
     final isLiked = _likedBlogs[blogIndex] ?? false;
     final isBookmarked = _bookmarkedBlogs[blogIndex] ?? false;
-    return Column(
-      children: [
-        Container(
-          color: Colors.white, // Background card putih
-          child: InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => BlogPage(blog: blog)),
-              );
-            },
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Main Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Author Info
-                        Row(
-                          children: [
-                            // Author Avatar
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.grey[300],
-                              child: Text(
-                                blog['authorInitials'] as String,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: _kTextColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Author Name
-                            Flexible(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    blog['authorName'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  if (blog['verified'] == true) ...[
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.verified,
-                                      size: 14,
-                                      color: _kPurpleColor,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        // Title
-                        Text(
-                          blog['title'] as String,
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BlogPage(
+                  blog: {
+                    'title': blog['title'],
+                    'documentJson': blog['documentJson'],
+                    'snippet': blog['snippet'] ?? '',
+                    'date': blog['date'],
+                    'authorName': blog['authorName'],
+                    'authorInitials': blog['authorInitials'],
+                    'thumbnail': blog['thumbnail'],
+                    'likes': blog['likes'],
+                    'comments': blog['comments'],
+                    'tags': blog['tags'] ?? [],
+                    'commentsList': blog['commentsList'] ?? [],
+                    'otherBlogs': blog['otherBlogs'] ?? [],
+                  },
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Author Row
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.grey.shade300,
+                            backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        // Snippet
-                        Text(
-                          blog['snippet'] as String,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 12),
-                        // Engagement Stats - Sejajar dengan action buttons
-                        Row(
-                          children: [
-                            // Left side: stats
-                            Flexible(
-                              child: Row(
-                                children: [
-                                  // Hilangkan icon bintang
-                                  Text(
-                                    blog['date'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Like icon - transparan, berubah warna saat diklik
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _likedBlogs[blogIndex] = !isLiked;
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Icon(
-                                        isLiked
-                                            ? Icons.thumb_up
-                                            : Icons.thumb_up_outlined,
-                                        size: 16,
-                                        color: isLiked
-                                            ? _kPurpleColor
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    blog['likes'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Icon(
-                                    Icons.comment_outlined,
-                                    size: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    blog['comments'] as String,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Right side: action buttons (always on the right)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Row(
                               children: [
-                                // Bookmark Button - transparan, berubah warna saat diklik
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _bookmarkedBlogs[blogIndex] =
-                                          !isBookmarked;
-                                    });
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Icon(
-                                      isBookmarked
-                                          ? Icons.bookmark
-                                          : Icons.bookmark_border,
-                                      size: 20,
-                                      color: isBookmarked
-                                          ? _kPurpleColor
-                                          : Colors.grey[600],
+                                Flexible(
+                                  child: Text(
+                                    blog['authorName']?.toString() ??
+                                        'Pengguna',
+                                    style: textTheme.labelMedium?.copyWith(
+                                      color: _kTextColor,
+                                      fontWeight: FontWeight.w700,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                if (blog['verified'] == true) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.verified,
+                                    size: 12,
+                                    color: _kPurpleColor,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Text(
+                            blog['date']?.toString() ?? '',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Title
+                      Text(
+                        blog['title']?.toString() ?? 'Tanpa Judul',
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: _kTextColor,
+                          fontSize: 16,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      // Snippet
+                      Text(
+                        blog['snippet']?.toString() ?? '',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: _kSubTextColor,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 12),
+                      // Stats Row
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _likedBlogs[blogIndex] = !isLiked;
+                              });
+                            },
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isLiked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border_rounded,
+                                  size: 16,
+                                  color: isLiked ? Colors.red : _kSubTextColor,
                                 ),
                                 const SizedBox(width: 4),
-                                // More Options Button
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    splashColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    onTap: () => _showBlogMenu(context, blog),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: const Icon(
-                                        Icons.more_vert,
-                                        size: 20,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
+                                Text(
+                                  blog['likes']?.toString() ?? '0',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: _kSubTextColor,
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                          const SizedBox(width: 16),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 16,
+                                color: _kSubTextColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                blog['comments']?.toString() ?? '0',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: _kSubTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _bookmarkedBlogs[blogIndex] = !isBookmarked;
+                              });
+                            },
+                            child: Icon(
+                              isBookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border_rounded,
+                              size: 20,
+                              color: isBookmarked
+                                  ? _kPurpleColor
+                                  : _kSubTextColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // TITIK TIGA - MEMANGGIL MENU BARU
+                          GestureDetector(
+                            onTap: () => _showBlogMenu(context, blog),
+                            child: const Icon(
+                              Icons.more_horiz,
+                              size: 20,
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  // Right Side - Thumbnail with sample image
-                  Container(
-                    width: 80,
-                    height: 80,
-                    margin: const EdgeInsets.only(left: 16),
+                ),
+                // Thumbnail
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 90,
+                    height: 90,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[100],
                       image: DecorationImage(
-                        image: NetworkImage(
-                          blog['thumbnail'] as String? ?? 'https://picsum.photos/200/300?random=${blog['id'] ?? blogIndex}',
-                        ),
+                        image: blog['thumbnail'] != null
+                            ? NetworkImage(blog['thumbnail'])
+                            : const AssetImage('assets/images/thumb_default.jpg')
+                                as ImageProvider,
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
-        // Divider antar card
-        const Divider(height: 1, thickness: 1, color: Color(0xFFDDDDDD)),
-      ],
+      ),
     );
   }
 }

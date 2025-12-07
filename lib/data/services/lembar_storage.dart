@@ -43,9 +43,10 @@ class LembarStorage {
       }
 
       // Add new lembar with unique ID and timestamp
+      // PERBAIKAN: Gunakan ID dari map jika ada, agar sinkron dengan story
       final newLembar = {
         ...lembar,
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'id': lembar['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
         'publishedAt': DateTime.now().toIso8601String(),
         'authorName': 'Pengguna',
         'authorInitials': 'PG',
@@ -100,9 +101,10 @@ class LembarStorage {
       }
 
       // Add new story with unique ID and timestamp
+      // PERBAIKAN: Gunakan ID dari map jika ada
       final newStory = {
         ...story,
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'id': story['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
         'publishedAt': DateTime.now().toIso8601String(),
         'date': _formatDate(DateTime.now()),
       };
@@ -278,6 +280,71 @@ class LembarStorage {
       await file.writeAsString(json.encode(jilidList));
     } catch (e) {
       print('Error deleting jilid: $e');
+    }
+  }
+
+  // Update story
+  static Future<void> updateStory(String id, Map<String, dynamic> updatedStory) async {
+    try {
+      final file = await _getStoriesFile();
+      List<Map<String, dynamic>> storiesList = [];
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        if (content.isNotEmpty) {
+          final decoded = json.decode(content);
+          if (decoded is List) storiesList = List<Map<String, dynamic>>.from(decoded);
+        }
+      }
+      final index = storiesList.indexWhere((s) => s['id']?.toString() == id);
+      if (index != -1) {
+        // Keep ID, update content
+        storiesList[index] = {...updatedStory, 'id': id};
+        await file.writeAsString(json.encode(storiesList));
+      }
+    } catch (e) {
+      print('Error updating story: $e');
+    }
+  }
+
+  // Delete story
+  static Future<void> deleteStory(String id) async {
+    try {
+      // 1. HAPUS DARI USER STORIES (Pribadi)
+      final storiesFile = await _getStoriesFile();
+      List<Map<String, dynamic>> storiesList = [];
+      if (await storiesFile.exists()) {
+        final content = await storiesFile.readAsString();
+        if (content.isNotEmpty) {
+          final decoded = json.decode(content);
+          if (decoded is List) storiesList = List<Map<String, dynamic>>.from(decoded);
+        }
+      }
+      storiesList.removeWhere((s) => s['id']?.toString() == id);
+      await storiesFile.writeAsString(json.encode(storiesList));
+
+      // 2. HAPUS DARI HOME FEED (Publik)
+      // Ini memastikan kalau di-delete dari profile, di beranda juga hilang
+      final publishedFile = await _getLembarFile();
+      List<Map<String, dynamic>> publishedList = [];
+      if (await publishedFile.exists()) {
+        final content = await publishedFile.readAsString();
+        if (content.isNotEmpty) {
+          final decoded = json.decode(content);
+          if (decoded is List) publishedList = List<Map<String, dynamic>>.from(decoded);
+        }
+      }
+      
+      // Hapus yang ID-nya sama
+      final int initialLength = publishedList.length;
+      publishedList.removeWhere((s) => s['id']?.toString() == id);
+      
+      // Hanya tulis ulang file jika ada yang dihapus
+      if (publishedList.length != initialLength) {
+        await publishedFile.writeAsString(json.encode(publishedList));
+      }
+
+    } catch (e) {
+      print('Error deleting story: $e');
     }
   }
 }

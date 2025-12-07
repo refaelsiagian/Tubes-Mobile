@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // Pastikan package ini sudah ada di pubspec.yaml
 import 'screens/auth/logo_page.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/auth/register_page.dart';
@@ -12,78 +13,63 @@ enum AuthPage { logo, login, register }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Lembar.',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8D07C6)),
+        // Skema Warna Utama (Tetap Ungu sesuai request)
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8D07C6),
+          primary: const Color(0xFF8D07C6),
+        ),
         useMaterial3: true,
-        fontFamily: 'Nunito',
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: Colors.black,
-          ),
-          headlineLarge: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-          headlineMedium: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-          headlineSmall: TextStyle(
+
+        // === IMPLEMENTASI FONT MODERN: MANROPE ===
+        // Menggantikan Poppins dengan Manrope.
+        // Google Fonts akan otomatis mengatur ukuran dan ketebalan yang proporsional.
+        textTheme: GoogleFonts.manropeTextTheme(
+          Theme.of(context).textTheme,
+        ),
+
+        // Customisasi AppBar agar lebih bersih dan modern (Flat Style)
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white, // Menghilangkan tint warna saat di-scroll (Material 3)
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.manrope(
             fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
+            fontWeight: FontWeight.w700, // Bold
+            color: const Color(0xFF1A1A1A), // Hitam soft
           ),
-          bodyLarge: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            color: Colors.black87,
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: Colors.black87,
-          ),
-          bodySmall: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: Colors.black54,
-          ),
-          labelLarge: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-          labelMedium: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-          labelSmall: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w400,
-            color: Colors.black54,
-          ),
+          iconTheme: const IconThemeData(color: Color(0xFF1A1A1A)),
         ),
-        appBarTheme: const AppBarTheme(
-          titleTextStyle: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
+
+        // Customisasi Tombol Utama (ElevatedButton)
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            textStyle: const TextStyle(
+            elevation: 0, // Flat button lebih modern
+            textStyle: GoogleFonts.manrope(
+              fontWeight: FontWeight.w700, // Teks tombol bold
+              fontSize: 16,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12), // Sudut membulat
+            ),
+          ),
+        ),
+        
+        // Customisasi Tombol Garis (OutlinedButton)
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            textStyle: GoogleFonts.manrope(
               fontWeight: FontWeight.w700,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
@@ -101,6 +87,7 @@ class PageControllerWidget extends StatefulWidget {
 
 class _PageControllerWidgetState extends State<PageControllerWidget> {
   AuthPage _currentPage = AuthPage.logo;
+  
   @override
   void initState() {
     super.initState();
@@ -146,4 +133,4 @@ class _PageControllerWidgetState extends State<PageControllerWidget> {
     }
     return activePage;
   }
-}
+} 
