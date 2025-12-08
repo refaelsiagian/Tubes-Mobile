@@ -1,3 +1,4 @@
+import 'dart:io'; // WAJIB ADA
 import 'package:flutter/material.dart';
 import '../auth/login_page.dart';
 import '../main/blog_page.dart';
@@ -28,7 +29,7 @@ class _ProfilePageState extends State<ProfilePage>
   String _selectedFilter = 'Public';
   static const int _currentNavIndex = 3;
 
-  // Sample user data (FINAL STRUCTURE)
+  // Sample user data
   String _userName = 'Dells';
   final String _userInitials = 'AT';
   String _userBio =
@@ -36,9 +37,14 @@ class _ProfilePageState extends State<ProfilePage>
   String _userEmail = 'dells.adelia@example.com';
   String _currentUsername = '@dells';
 
-  final String? _bannerImageUrl = 'assets/images/banner_default.jpg';
+  // --- PATH ASSET DEFAULT ---
+  final String _defaultBannerAsset = 'assets/images/banner_default.jpg';
+  final String _defaultAvatarAsset = 'assets/images/ava_default.jpg';
+  final String _defaultThumbAsset = 'assets/images/thumb_default.jpg';
 
-  final String? _profileImageUrl = null;
+  String? _bannerImagePath;
+  String? _profileImagePath;
+
   final int _followers = 120;
   final int _following = 45;
 
@@ -70,6 +76,10 @@ class _ProfilePageState extends State<ProfilePage>
         _refreshData();
       }
     });
+    // Init default path
+    _bannerImagePath = _defaultBannerAsset;
+    _profileImagePath = _defaultAvatarAsset;
+    
     _loadStories();
     _loadJilid();
   }
@@ -93,10 +103,23 @@ class _ProfilePageState extends State<ProfilePage>
     });
   }
 
-  // --- LOGIC: STORY MENU (Untuk Tab Lembar) ---
+  // === FUNGSI PINTAR: DETEKSI TIPE GAMBAR ===
+  ImageProvider _getSmartImage(String? path, String defaultAsset) {
+    if (path == null || path.isEmpty) {
+      return AssetImage(defaultAsset);
+    }
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    }
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    }
+    return FileImage(File(path));
+  }
+
+  // --- LOGIC MENU & VISIBILITY (Sama seperti sebelumnya) ---
   void _showStoryOptionMenu(BuildContext context, Map<String, dynamic> story) {
     final currentVisibility = story['visibility'] ?? 'Publik';
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -152,7 +175,6 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  // --- LOGIC: LIKED MENU (Untuk Tab Disukai) ---
   void _showLikedOptionMenu(BuildContext context, Map<String, dynamic> blog) {
     showModalBottomSheet(
       context: context,
@@ -178,25 +200,21 @@ class _ProfilePageState extends State<ProfilePage>
                     ),
                   ),
                 ),
-                // Opsi 1: Bagikan
                 _buildMenuItem(
                   icon: Icons.share_rounded,
                   label: 'Bagikan',
                   color: Colors.blueAccent,
                   onTap: () {
                     Navigator.pop(context);
-                    // Implementasi share
                   },
                 ),
                 const SizedBox(height: 12),
-                // Opsi 2: Hapus dari Disukai
                 _buildMenuItem(
                   icon: Icons.favorite_border_rounded,
                   label: 'Hapus dari Disukai',
                   color: Colors.redAccent,
                   onTap: () {
                     Navigator.pop(context);
-                    // Implementasi unlike (Simulasi)
                     setState(() {
                       _likedBlogs.remove(blog);
                     });
@@ -445,6 +463,31 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
+  // --- LOGIC NAVIGASI EDIT PROFILE ---
+  void _onEditProfilePressed() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditProfilePage(
+          initialName: _userName,
+          initialUsername: _currentUsername,
+          initialBio: _userBio,
+          initialEmail: _userEmail,
+        ),
+      ),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        _userName = result['name'] ?? _userName;
+        _currentUsername = result['username'] ?? _currentUsername;
+        _userBio = result['bio'] ?? _userBio;
+        if (result['profilePath'] != null) _profileImagePath = result['profilePath'];
+        if (result['bannerPath'] != null) _bannerImagePath = result['bannerPath'];
+      });
+      _loadStories(); 
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -519,31 +562,6 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  // LOGIC NAVIGASI BARU
-  void _onEditProfilePressed() async {
-    // Navigasi ke EditProfilePage dan mengirim semua data profil
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EditProfilePage(
-          initialName: _userName,
-          initialUsername: _currentUsername, // Mengirim Username
-          initialBio: _userBio,
-          initialEmail: _userEmail, // Mengirim Email
-        ),
-      ),
-    );
-
-    if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        _userName = result['name'] ?? _userName;
-        _currentUsername = result['username'] ?? _currentUsername;
-        _userBio = result['bio'] ?? _userBio;
-      });
-      _loadStories(); 
-    }
-  }
-
-
   Widget _buildModernProfileHeader(BuildContext context, TextTheme textTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,6 +570,7 @@ class _ProfilePageState extends State<ProfilePage>
           clipBehavior: Clip.none,
           alignment: Alignment.bottomLeft,
           children: [
+            // === HEADER BANNER ===
             Container(
               height: 180,
               width: double.infinity,
@@ -562,11 +581,8 @@ class _ProfilePageState extends State<ProfilePage>
                   top: Radius.circular(24),
                   bottom: Radius.circular(24),
                 ),
-                // Banner tetap default
                 image: DecorationImage(
-                  image: _bannerImageUrl != null
-                      ? AssetImage(_bannerImageUrl!)
-                      : const AssetImage('assets/images/banner_default.jpg'),
+                  image: _getSmartImage(_bannerImagePath, _defaultBannerAsset),
                   fit: BoxFit.cover,
                 ),
                 boxShadow: [
@@ -588,7 +604,7 @@ class _ProfilePageState extends State<ProfilePage>
                         width: 38,
                         height: 38,
                         child: ElevatedButton(
-                          onPressed: _onEditProfilePressed, // Memanggil fungsi navigasi baru
+                          onPressed: _onEditProfilePressed,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _kTextColor,
                             foregroundColor: Colors.white,
@@ -620,6 +636,7 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
               ),
             ),
+            // === HEADER AVATAR ===
             Positioned(
               bottom: -25,
               left: 36,
@@ -631,12 +648,8 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundColor: Colors.grey.shade300,
-                  // Ava tetap default
-                  backgroundImage: _profileImageUrl != null
-                      ? NetworkImage(_profileImageUrl!)
-                      : const AssetImage('assets/images/ava_default.jpg')
-                          as ImageProvider,
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage: _getSmartImage(_profileImagePath, _defaultAvatarAsset),
                 ),
               ),
             ),
@@ -886,13 +899,11 @@ class _ProfilePageState extends State<ProfilePage>
                     children: [
                       Row(
                         children: [
-                          // Ganti Icon Person -> ava_default
+                          // AVATAR KECIL DI CARD
                           CircleAvatar(
                             radius: 10,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: const AssetImage(
-                              'assets/images/ava_default.jpg',
-                            ),
+                            backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -988,14 +999,9 @@ class _ProfilePageState extends State<ProfilePage>
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[100],
-                      // thumb_default tetap dipakai di sini (Tab Lembar)
+                      // THUMBNAIL (Pakai _getSmartImage)
                       image: DecorationImage(
-                        image: item['thumbnail'] != null
-                            ? NetworkImage(item['thumbnail'])
-                            : const AssetImage(
-                                    'assets/images/thumb_default.jpg',
-                                  )
-                                  as ImageProvider,
+                        image: _getSmartImage(item['thumbnail'], _defaultThumbAsset),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -1024,6 +1030,7 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
+  // === CARD JILID (REVERTED TO ICON IF NULL) ===
   Widget _buildModernJilidCard(
     Map<String, dynamic> jilid,
     TextTheme textTheme,
@@ -1059,34 +1066,33 @@ class _ProfilePageState extends State<ProfilePage>
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
-                // === REVERT: KEMBALI KE ICON FOLDER UNTUK JILID ===
+                // === THUMBNAIL JILID (Pake Icon kalau null) ===
                 Container(
                   width: 70,
                   height: 70,
                   decoration: BoxDecoration(
                     color: _kPurpleColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    // Logic: Kalau misal nanti ada fitur upload thumbnail Jilid, baru muncul. 
-                    // Kalau null, tidak pakai default image.
+                    // Hanya pakai gambar jika datanya ADA
                     image: jilid['thumbnail'] != null
                         ? DecorationImage(
-                            image: NetworkImage(jilid['thumbnail']),
+                            image: _getSmartImage(jilid['thumbnail'], ''), // Default string kosong karena dihandle di bawah
                             fit: BoxFit.cover,
                           )
                         : null,
                   ),
+                  // Kalau data null, TAMPILKAN ICON
                   child: jilid['thumbnail'] == null
                       ? const Center(
                           child: Icon(
-                            Icons.folder_open_rounded, // Icon Folder
+                            Icons.folder_open_rounded,
                             color: _kPurpleColor,
                             size: 32,
                           ),
                         )
                       : null,
                 ),
-                // ================================================
-                
+                // ==============================================
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(

@@ -1,7 +1,8 @@
-import 'dart:io'; 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../../data/services/lembar_storage.dart';
 
 // Konstanta Warna Modern
@@ -31,10 +32,8 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
   String _selectedVisibility = 'Publik';
   late TextEditingController _titleController;
   late TextEditingController _snippetController;
-  File? _coverImage;
 
-  // Controller untuk Preview Konten
-  late quill.QuillController _quillController;
+  File? _coverImage;
 
   @override
   void initState() {
@@ -43,30 +42,13 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     _snippetController = TextEditingController(
       text: _generateSnippet(widget.content),
     );
-    _loadContentPreview();
-  }
-
-  void _loadContentPreview() {
-    try {
-      if (widget.documentJson != null) {
-        _quillController = quill.QuillController(
-          document: quill.Document.fromJson(widget.documentJson),
-          selection: const TextSelection.collapsed(offset: 0),
-          readOnly: true,
-        );
-      } else {
-        _quillController = quill.QuillController.basic();
-      }
-    } catch (e) {
-      _quillController = quill.QuillController.basic();
-    }
   }
 
   String _generateSnippet(String? content) {
     if (content == null || content.isEmpty) return '';
     List<String> words = content.trim().split(RegExp(r'\s+'));
-    if (words.length > 20) {
-      return '${words.take(20).join(' ')}...';
+    if (words.length > 25) {
+      return '${words.take(25).join(' ')}...';
     }
     return content;
   }
@@ -75,7 +57,6 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
   void dispose() {
     _titleController.dispose();
     _snippetController.dispose();
-    _quillController.dispose();
     super.dispose();
   }
 
@@ -84,8 +65,32 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
+      _cropImage(File(pickedFile.path));
+    }
+  }
+
+  Future<void> _cropImage(File imageFile) async {
+    CroppedFile? croppedFile = await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Atur Thumbnail',
+          toolbarColor: _kPurpleColor,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'Atur Thumbnail',
+          aspectRatioLockEnabled: true,
+        ),
+      ],
+    );
+
+    if (croppedFile != null) {
       setState(() {
-        _coverImage = File(pickedFile.path);
+        _coverImage = File(croppedFile.path);
       });
     }
   }
@@ -99,17 +104,14 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'Pratinjau Lembar',
+          style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: _kTextColor),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: _kTextColor),
           onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        centerTitle: true,
-        title: Text(
-          'Tinjau Tulisan',
-          style: theme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: _kTextColor,
-          ),
         ),
       ),
       body: Column(
@@ -118,61 +120,96 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start, // Rata Kiri untuk teks
                 children: [
-                  // INFO PENULIS
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
+                  
+                  // 1. INSTRUKSI 
+                  Center(
+                    child: Text(
+                      'Atur tampilan tulisanmu di Lembar.',
+                      textAlign: TextAlign.center,
+                      style: theme.bodyMedium?.copyWith(color: _kSubTextColor),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+
+                  // 2. THUMBNAIL
+                  Center(
+                    child: GestureDetector(
+                      onTap: _pickCoverImage,
+                      child: Container(
+                        width: 110, 
+                        height: 110, 
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade300),
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16), 
+                          border: Border.all(color: Colors.grey.shade200),
+                          image: _coverImage != null
+                              ? DecorationImage(
+                                  image: FileImage(_coverImage!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            )
+                          ],
                         ),
-                        child: CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Colors.grey.shade300,
-                          backgroundImage: const AssetImage('assets/images/ava_default.jpg'),
-                        ),
+                        child: _coverImage == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_a_photo_outlined,
+                                      size: 28, color: Colors.grey.shade400),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Cover',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Container(
+                                alignment: Alignment.bottomRight,
+                                padding: const EdgeInsets.all(6),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.edit,
+                                      color: _kPurpleColor, size: 14),
+                                ),
+                              ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Pengguna',
-                        style: theme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: _kTextColor,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '•  Akan datang',
-                        style: theme.labelSmall?.copyWith(
-                          color: _kSubTextColor,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // INPUT JUDUL
+                  // 3. JUDUL 
                   TextField(
                     controller: _titleController,
-                    style: theme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    textAlign: TextAlign.start, 
+                    style: theme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                       color: _kTextColor,
-                      fontSize: 28,
                       height: 1.2,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Judul Tulisan...',
-                      hintStyle: theme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: Colors.grey.shade300,
-                        fontSize: 28,
-                      ),
+                      hintStyle: TextStyle(color: Colors.grey.shade300),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
+                      isDense: true,
                     ),
                     maxLines: null,
                     textCapitalization: TextCapitalization.sentences,
@@ -180,181 +217,70 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
 
                   const SizedBox(height: 12),
 
-                  // INPUT SNIPPET (RINGKASAN)
+                  // 4. SNIPPET 
                   TextField(
                     controller: _snippetController,
-                    style: theme.bodyLarge?.copyWith(
+                    textAlign: TextAlign.start,
+                    style: theme.bodyMedium?.copyWith(
                       color: _kSubTextColor,
-                      fontSize: 16,
-                      height: 1.6,
+                      height: 1.5,
                     ),
-                    maxLines: null,
                     decoration: InputDecoration(
-                      hintText:
-                          'Tulis ringkasan singkat agar menarik pembaca...',
-                      hintStyle: theme.bodyLarge?.copyWith(
-                        color: Colors.grey.shade400,
-                        fontSize: 16,
-                        height: 1.6,
-                      ),
+                      hintText: 'Tulis ringkasan singkat...',
+                      hintStyle: TextStyle(color: Colors.grey.shade300),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                     ),
-                  ),
-
-                  const SizedBox(height: 32),
-                  const Divider(color: Color(0xFFEEEEEE), thickness: 1),
-                  const SizedBox(height: 24),
-
-                  // --- PREVIEW KONTEN LENGKAP ---
-                  Text(
-                    'Pratinjau Isi:',
-                    style: theme.labelLarge?.copyWith(color: _kSubTextColor),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Quill Editor (Read Only)
-                  quill.QuillEditor(
-                    controller: _quillController,
-                    scrollController: ScrollController(),
-                    focusNode: FocusNode(),
-                    config: quill.QuillEditorConfig(
-                      autoFocus: false,
-                      expands: false,
-                      padding: EdgeInsets.zero,
-                      enableInteractiveSelection: false, 
-                      embedBuilders: [ImageEmbedBuilder()],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  const Divider(color: Color(0xFFEEEEEE), thickness: 1),
-                  const SizedBox(height: 24),
-
-                  // PENGATURAN VISIBILITAS
-                  Text(
-                    'Pengaturan Publikasi',
-                    style: theme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: _kTextColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: ListTile(
-                      onTap: _showVisibilityBottomSheet,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Icon(
-                          _selectedVisibility == 'Publik'
-                              ? Icons.public_rounded
-                              : Icons.lock_outline_rounded,
-                          color: _kPurpleColor,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        'Visibilitas',
-                        style: theme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        _selectedVisibility,
-                        style: theme.bodySmall?.copyWith(color: _kSubTextColor),
-                      ),
-                      trailing: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-                  
-                  GestureDetector(
-                    onTap: _pickCoverImage,
-                    child: Container(
-                      width: double.infinity,
-                      height: _coverImage != null ? 200 : null,
-                      padding: _coverImage != null
-                          ? EdgeInsets.zero
-                          : const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                        image: _coverImage != null
-                            ? DecorationImage(
-                                image: FileImage(_coverImage!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                      child: _coverImage == null
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  color: Colors.grey.shade400,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Tambahkan Sampul (Opsional)',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Stack(
-                              children: [
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _coverImage = null;
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.6),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.close,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
+                    maxLines: 4,
+                    minLines: 1,
                   ),
 
                   const SizedBox(height: 40),
+                  const Divider(thickness: 1, color: Color(0xFFF5F5F5)),
+                  const SizedBox(height: 10),
+
+                  // Opsi Visibility 
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    onTap: _showVisibilityBottomSheet,
+                    title: const Text('Siapa yang bisa melihat ini?',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _kTextColor)),
+                    subtitle: Text(
+                      _selectedVisibility == 'Publik'
+                          ? 'Semua orang di Lembar'
+                          : 'Hanya kamu (Pribadi)',
+                      style:
+                          const TextStyle(fontSize: 12, color: _kSubTextColor),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _selectedVisibility == 'Publik' 
+                            ? _kPurpleColor.withOpacity(0.1) 
+                            : Colors.grey.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _selectedVisibility,
+                            style: TextStyle(
+                              color: _selectedVisibility == 'Publik' ? _kPurpleColor : Colors.grey[700],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.keyboard_arrow_down_rounded, size: 16, 
+                              color: _selectedVisibility == 'Publik' ? _kPurpleColor : Colors.grey[700]),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -367,89 +293,50 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
 
   Widget _buildBottomAction() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        border: Border(top: BorderSide(color: Colors.grey.shade100)),
       ),
       child: SafeArea(
         child: Row(
           children: [
-            Expanded(
-              flex: 1,
-              child: SizedBox(
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: _onDraftPressed,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
-                    ),
-                    foregroundColor: _kTextColor,
+             Expanded(
+               child: TextButton(
+                 onPressed: _onDraftPressed,
+                 style: TextButton.styleFrom(
+                   padding: const EdgeInsets.symmetric(vertical: 16),
+                   foregroundColor: _kSubTextColor,
+                 ),
+                 child: const Text('Simpan ke Draft'),
+               ),
+             ),
+             const SizedBox(width: 12),
+             Expanded(
+               flex: 2,
+               child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(25),
+                  gradient: const LinearGradient(colors: [_kGradientStart, _kGradientStart]),
+                  boxShadow: [
+                    BoxShadow(color: _kPurpleColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _onPublishPressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent, 
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
                   child: const Text(
-                    'Draft',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    'Publikasi', 
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 52,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(26),
-                    gradient: const LinearGradient(
-                      colors: [_kGradientStart, _kGradientEnd],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _kPurpleColor.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _onPublishPressed,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(26),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Publikasikan',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Icon(Icons.send_rounded, size: 18, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+               ),
+             ),
           ],
         ),
       ),
@@ -460,67 +347,27 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
               ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.public, color: Colors.blue),
-                ),
-                title: const Text(
-                  'Publik',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _kPurpleColor.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.public, color: _kPurpleColor)),
+                title: const Text('Publik', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text('Semua orang bisa melihat tulisan ini'),
-                onTap: () {
-                  setState(() => _selectedVisibility = 'Publik');
-                  Navigator.pop(ctx);
-                },
-                trailing: _selectedVisibility == 'Publik'
-                    ? const Icon(Icons.check, color: _kPurpleColor)
-                    : null,
+                onTap: () { setState(() => _selectedVisibility = 'Publik'); Navigator.pop(ctx); },
+                trailing: _selectedVisibility == 'Publik' ? const Icon(Icons.check, color: _kPurpleColor) : null,
               ),
               const Divider(height: 1, indent: 60),
               ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.lock_outline, color: Colors.grey),
-                ),
-                title: const Text(
-                  'Private',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.lock_outline, color: Colors.grey)),
+                title: const Text('Private', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text('Hanya kamu yang bisa melihat'),
-                onTap: () {
-                  setState(() => _selectedVisibility = 'Private');
-                  Navigator.pop(ctx);
-                },
-                trailing: _selectedVisibility == 'Private'
-                    ? const Icon(Icons.check, color: _kPurpleColor)
-                    : null,
+                onTap: () { setState(() => _selectedVisibility = 'Private'); Navigator.pop(ctx); },
+                trailing: _selectedVisibility == 'Private' ? const Icon(Icons.check, color: _kPurpleColor) : null,
               ),
               const SizedBox(height: 16),
             ],
@@ -532,25 +379,24 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
 
   Future<void> _onPublishPressed() async {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Judul tidak boleh kosong')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Judul tidak boleh kosong')));
       return;
     }
 
-    final String commonId = DateTime.now().millisecondsSinceEpoch.toString();
-    final String timestamp = DateTime.now().toIso8601String();
+    final String thumbnailPath = _coverImage != null 
+        ? _coverImage!.path 
+        : 'assets/images/thumb_default.jpg';
 
     final lembarData = {
-      'id': commonId,
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'title': _titleController.text.trim(),
       'snippet': _snippetController.text.trim(),
       'content': widget.content ?? '',
       'documentJson': widget.documentJson,
       'visibility': _selectedVisibility,
-      'thumbnail': _coverImage?.path,
+      'thumbnail': thumbnailPath,
       'date': DateTime.now().toString(),
-      'publishedAt': timestamp,
+      'publishedAt': DateTime.now().toIso8601String(),
       'authorName': 'Pengguna',
       'authorInitials': '',
       'likes': '0',
@@ -561,30 +407,24 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     await LembarStorage.saveStory(lembarData);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Lembar berhasil dipublikasikan!'),
-          backgroundColor: _kPurpleColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.of(context).pop();
-      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Lembar berhasil dipublikasikan!'), backgroundColor: _kPurpleColor));
+      Navigator.of(context).pop(); 
+      Navigator.of(context).pop(); 
     }
   }
 
   Future<void> _onDraftPressed() async {
-    final String commonId = DateTime.now().millisecondsSinceEpoch.toString();
+    final String thumbnailPath = _coverImage != null 
+        ? _coverImage!.path 
+        : 'assets/images/thumb_default.jpg';
 
     final draftData = {
-      'id': commonId,
-      'title': _titleController.text.trim().isNotEmpty
-          ? _titleController.text.trim()
-          : widget.title ?? 'Untitled',
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'title': _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
       'snippet': _snippetController.text.trim(),
       'content': widget.content ?? '',
       'documentJson': widget.documentJson,
-      'thumbnail': _coverImage?.path,
+      'thumbnail': thumbnailPath,
       'visibility': 'Draft',
       'date': DateTime.now().toString(),
       'publishedAt': DateTime.now().toIso8601String(),
@@ -595,43 +435,10 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     await LembarStorage.saveStory(draftData);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Disimpan ke Draft'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Disimpan ke Draft')));
       Navigator.of(context).pop();
       Navigator.of(context).pop();
     }
   }
 }
 
-class ImageEmbedBuilder extends quill.EmbedBuilder {
-  @override
-  String get key => 'image';
-
-  @override
-  Widget build(BuildContext context, quill.EmbedContext embedContext) {
-    final imageUrl = embedContext.node.value.data;
-    if (imageUrl is String && imageUrl.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Image.file(
-          File(imageUrl),
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              height: 200,
-              color: Colors.grey[200],
-              child: const Center(
-                child: Icon(Icons.broken_image, color: Colors.grey),
-              ),
-            );
-          },
-        ),
-      );
-    }
-    return const SizedBox();
-  }
-}
