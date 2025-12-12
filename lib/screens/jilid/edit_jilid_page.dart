@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../lembar/select_lembar_page.dart';
 import '../main/blog_page.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../data/services/series_service.dart';
 
 // Konstanta Warna
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -36,7 +36,7 @@ class _EditJilidPageState extends State<EditJilidPage> {
     // Deep copy list lembar agar perubahan tidak langsung ref ke object asal
     // sebelum disave
     _lembarList = List<Map<String, dynamic>>.from(
-      (widget.jilid['lembar'] as List? ?? []).map(
+      (widget.jilid['posts'] as List? ?? []).map(
         (x) => Map<String, dynamic>.from(x),
       ),
     );
@@ -374,19 +374,7 @@ class _EditJilidPageState extends State<EditJilidPage> {
             context,
             MaterialPageRoute(
               builder: (context) => BlogPage(
-                blog: {
-                  'title': lembar['title'] ?? '',
-                  'documentJson': lembar['documentJson'],
-                  'snippet': lembar['snippet'] ?? '',
-                  'date': lembar['date'] ?? 'Baru saja',
-                  // PERBAIKAN: Gunakan data dinamis & Kosongkan inisial (biar jadi Icon)
-                  'authorName': lembar['authorName'] ?? 'Pengguna',
-                  'authorInitials': '', 
-                  'thumbnail': lembar['thumbnail'],
-                  'likes': lembar['likes'] ?? '0',
-                  'comments': lembar['comments'] ?? '0',
-                  'tags': lembar['tags'] ?? [],
-                },
+                postId: int.tryParse(lembar['id'].toString()) ?? 0,
               ),
             ),
           );
@@ -581,20 +569,32 @@ class _EditJilidPageState extends State<EditJilidPage> {
       return;
     }
 
-    final updatedData = {
-      'title': _titleController.text.trim(),
-      'description': _descriptionController.text.trim(),
-      'count': _lembarList.length,
-      'thumbnail': widget.jilid['thumbnail'],
-      'lembar': _lembarList, // Ini list yang sudah terupdate urutannya
-    };
+    // Extract Post IDs
+    final List<int> postIds = _lembarList
+        .map((item) => int.tryParse(item['id'].toString()) ?? 0)
+        .where((id) => id != 0)
+        .toList();
 
-    // Update Storage
-    await LembarStorage.updateJilid(widget.jilid['id'].toString(), updatedData);
+    // Update via API
+    final seriesService = SeriesService();
+    final result = await seriesService.updateSeries(
+      int.tryParse(widget.jilid['id'].toString()) ?? 0,
+      _titleController.text.trim(),
+      _descriptionController.text.trim(),
+      postIds,
+    );
 
-    if (mounted) {
-      // Return true menandakan ada perubahan
-      Navigator.of(context).pop(true);
+    if (result['success']) {
+      if (mounted) {
+        // Return true menandakan ada perubahan
+        Navigator.of(context).pop(true);
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal memperbarui jilid')),
+        );
+      }
     }
   }
 }

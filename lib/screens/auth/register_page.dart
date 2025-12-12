@@ -1,11 +1,56 @@
 import 'package:flutter/material.dart';
+import '../../data/services/auth_service.dart';
 
 const Color _kPurpleColor = Color(0xFF8D07C6);
 const Color _kTextColor = Color(0xFF333333);
 
-class RegisterPage extends StatelessWidget {
+class RegisterPage extends StatefulWidget {
   final VoidCallback onLoginTap;
   const RegisterPage({super.key, required this.onLoginTap});
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
+  final _authService = AuthService();
+
+  Future<void> _handleRegister() async {
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kata sandi tidak sama')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    
+    final result = await _authService.register(
+      _nameController.text,
+      _emailController.text,
+      _passwordController.text,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (!mounted) return;
+
+    if (result['success']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registrasi berhasil! Silakan masuk.')),
+      );
+      widget.onLoginTap();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'])),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
@@ -37,6 +82,7 @@ class RegisterPage extends StatelessWidget {
               label: 'Nama pengguna',
               hint: 'Masukkan nama pengguna',
               context: context,
+              controller: _nameController,
             ),
             const SizedBox(height: 16),
             // Input Email
@@ -44,6 +90,7 @@ class RegisterPage extends StatelessWidget {
               label: 'Email',
               hint: 'Masukkan email valid',
               context: context,
+              controller: _emailController,
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),
@@ -52,6 +99,7 @@ class RegisterPage extends StatelessWidget {
               label: 'Kata sandi',
               hint: 'Masukkan sandi',
               context: context,
+              controller: _passwordController,
               isPassword: true,
             ),
             const SizedBox(height: 16),
@@ -60,11 +108,17 @@ class RegisterPage extends StatelessWidget {
               label: 'Konfirmasi kata sandi',
               hint: 'Masukkan konfirmasi sandi',
               context: context,
+              controller: _confirmPasswordController,
               isPassword: true,
             ),
             const SizedBox(height: 24),
             // Tombol Daftar (Gradient)
-            _buildGradientButton(text: 'Daftar', onPressed: () {}),
+            _isLoading
+              ? const CircularProgressIndicator()
+              : _buildGradientButton(
+                  text: 'Daftar',
+                  onPressed: _handleRegister,
+                ),
             const SizedBox(height: 32),
             // Sudah Punya Akun? Masuk.
             Row(
@@ -72,7 +126,7 @@ class RegisterPage extends StatelessWidget {
               children: [
                 const Text('Sudah memiliki akun? '),
                 InkWell(
-                  onTap: onLoginTap,
+                  onTap: widget.onLoginTap,
                   splashColor: Colors.transparent,
                   highlightColor: Colors.transparent,
                   child: const Text(
@@ -95,6 +149,7 @@ class RegisterPage extends StatelessWidget {
     required String label,
     required String hint,
     required BuildContext context,
+    required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
     bool isPassword = false,
   }) {
@@ -104,6 +159,7 @@ class RegisterPage extends StatelessWidget {
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 4),
         TextField(
+          controller: controller,
           keyboardType: keyboardType,
           obscureText: isPassword,
           style: Theme.of(
