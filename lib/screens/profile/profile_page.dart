@@ -256,6 +256,27 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                 ),
                 // Dynamic menu based on visibility
+                if (currentVisibility == 'Public' || currentVisibility == 'Private') ...[
+                  _buildMenuItem(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit Lembar',
+                    color: _kTextColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Navigate to EditLembarPage
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditLembarPage(
+                            postId: int.tryParse(story['id'].toString()) ?? 0,
+                          ),
+                        ),
+                      ).then((_) => _refreshData());
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 if (currentVisibility == 'Public') ...[
                   _buildMenuItem(
                     icon: Icons.lock_outline_rounded,
@@ -534,91 +555,12 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   void _showLogoutConfirmation(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    // Navigate to Account Settings Page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AccountSettingsPage(),
       ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.logout, size: 40, color: _kTextColor),
-                const SizedBox(height: 16),
-                const Text(
-                  'Keluar Akun?',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: _kTextColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Apakah kamu yakin ingin keluar dari aplikasi?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: _kSubTextColor),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Batal',
-                          style: TextStyle(color: _kTextColor),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await _authService.logout();
-                          if (context.mounted) {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => LoginPage(
-                                  onRegisterTap: () {},
-                                  onForgotTap: () {},
-                                ),
-                              ),
-                              (Route<dynamic> route) => false,
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text('Keluar'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 

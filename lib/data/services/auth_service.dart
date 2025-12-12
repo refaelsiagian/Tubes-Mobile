@@ -63,7 +63,7 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> register(String name, String email, String password) async {
+  Future<Map<String, dynamic>> register(String name, String username, String email, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/register'),
@@ -72,7 +72,8 @@ class AuthService {
           'Accept': 'application/json',
         },
         body: jsonEncode({
-          'username': name,
+          'name': name,
+          'username': username,
           'email': email,
           'password': password,
         }),
@@ -103,6 +104,27 @@ class AuthService {
     }
   }
 
+  Future<bool> checkUsername(String username) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/check-username'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'username': username}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['available'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> getProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -113,7 +135,7 @@ class AuthService {
       }
 
       final response = await http.get(
-        Uri.parse('$baseUrl/me'),
+        Uri.parse('$baseUrl/user'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -202,6 +224,32 @@ class AuthService {
       }
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+
+  Future<List<Map<String, dynamic>>> searchUsers(String query) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/users?search=$query'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body)['data'];
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
+      }
+    } catch (e) {
+      return [];
     }
   }
 }

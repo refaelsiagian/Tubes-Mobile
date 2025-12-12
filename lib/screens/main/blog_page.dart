@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import '../../data/services/post_service.dart';
 import '../../data/services/auth_service.dart';
+import '../lembar/edit_lembar.dart';
 
 // Warna-warna konstanta
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -34,6 +35,7 @@ class _BlogPageState extends State<BlogPage> {
   
   Map<String, dynamic>? _post;
   List<Map<String, dynamic>> _comments = [];
+  Map<String, dynamic>? _currentUser; // Add current user
   bool _isLoading = true;
   final TextEditingController _commentController = TextEditingController();
 
@@ -51,6 +53,7 @@ class _BlogPageState extends State<BlogPage> {
     await Future.wait([
       _loadPostDetails(),
       _loadComments(),
+      _loadCurrentUser(), // Load current user
     ]);
     setState(() => _isLoading = false);
   }
@@ -72,6 +75,15 @@ class _BlogPageState extends State<BlogPage> {
     if (result['success'] && mounted) {
       setState(() {
         _comments = List<Map<String, dynamic>>.from(result['data']);
+      });
+    }
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final result = await _authService.getProfile();
+    if (result['success'] && mounted) {
+      setState(() {
+        _currentUser = result['data'];
       });
     }
   }
@@ -228,6 +240,148 @@ class _BlogPageState extends State<BlogPage> {
     );
   }
 
+  void _showBlogOptions(BuildContext context) {
+    final currentVisibility = _post?['visibility'] ?? 'Public';
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Edit Option
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined, color: _kTextColor),
+                  title: const Text('Edit Lembar', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Navigate to EditLembarPage
+                     Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditLembarPage(
+                          postId: widget.postId,
+                        ),
+                      ),
+                    ).then((_) => _loadPostDetails());
+                  },
+                ),
+                
+                // Visibility Options
+                if (currentVisibility == 'Public')
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline_rounded, color: Colors.blueAccent),
+                    title: const Text('Ubah ke Private', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _changeVisibility('private');
+                    },
+                  )
+                else if (currentVisibility == 'Private')
+                  ListTile(
+                    leading: const Icon(Icons.public_rounded, color: Colors.blueAccent),
+                    title: const Text('Ubah ke Public', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _changeVisibility('public');
+                    },
+                  ),
+
+                // Delete Option
+                ListTile(
+                  leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  title: const Text('Hapus Lembar', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.redAccent)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDelete();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _changeVisibility(String newVisibility) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Mengubah visibility...'), duration: Duration(seconds: 1)),
+    );
+
+    final result = await _postService.updatePost(
+      widget.postId,
+      '', '', '', // Not changing these
+      visibility: newVisibility,
+    );
+
+    if (mounted) {
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Berhasil ubah ke ${newVisibility == 'public' ? 'Public' : 'Private'}')),
+        );
+        _loadPostDetails();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      }
+    }
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Lembar?'),
+        content: const Text('Tindakan ini tidak dapat dibatalkan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final result = await _postService.deletePost(widget.postId);
+              if (mounted) {
+                if (result) {
+                  Navigator.pop(context); // Close BlogPage
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Lembar berhasil dihapus')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Gagal menghapus lembar')),
+                  );
+                }
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -278,10 +432,11 @@ class _BlogPageState extends State<BlogPage> {
             ),
             onPressed: () => setState(() => _isBookmarked = !_isBookmarked),
           ),
-          IconButton(
-            icon: const Icon(Icons.more_horiz_rounded, color: _kTextColor, size: 22),
-            onPressed: () {},
-          ),
+          if (_post != null && _currentUser != null && _post!['author']['id'] == _currentUser!['id'])
+            IconButton(
+              icon: const Icon(Icons.more_horiz_rounded, color: _kTextColor, size: 22),
+              onPressed: () => _showBlogOptions(context),
+            ),
           const SizedBox(width: 8),
         ],
       ),
@@ -408,10 +563,7 @@ class _BlogPageState extends State<BlogPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'DITULIS OLEH',
-                          style: TextStyle(fontSize: 10, letterSpacing: 1, color: _kSubTextColor),
-                        ),
+
                         const SizedBox(height: 2),
                         Text(
                           getAuthorName(),
@@ -466,10 +618,10 @@ class _BlogPageState extends State<BlogPage> {
                         CircleAvatar(
                           radius: 12,
                           backgroundColor: Colors.grey.shade200,
-                          backgroundImage: _getSmartImage(null, _defaultAvatar), // Smart Image
+                          backgroundImage: _getSmartImage(_currentUser?['avatar_url'], _defaultAvatar), // Use current user avatar
                         ),
                         const SizedBox(width: 8),
-                        const Text("Pengguna", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        Text(_currentUser?['name'] ?? "Pengguna", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)), // Use current user name
                       ],
                     ),
                     TextField(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/services/auth_service.dart';
 
@@ -11,13 +12,51 @@ class RegisterPage extends StatefulWidget {
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
+
+
 class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
+  final _usernameController = TextEditingController(); // New Controller
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
   final _authService = AuthService();
+  
+  Timer? _debounce;
+  bool? _usernameAvailable;
+  String? _usernameMessage;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _nameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _onUsernameChanged(String value) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    
+    if (value.isEmpty) {
+      setState(() {
+        _usernameAvailable = null;
+        _usernameMessage = null;
+      });
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      final available = await _authService.checkUsername(value);
+      setState(() {
+        _usernameAvailable = available;
+        _usernameMessage = available ? 'Username tersedia' : 'Username sudah dipakai';
+      });
+    });
+  }
 
   Future<void> _handleRegister() async {
     if (_passwordController.text != _confirmPasswordController.text) {
@@ -27,10 +66,18 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    if (_usernameAvailable == false) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username sudah dipakai, silakan ganti')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     
     final result = await _authService.register(
       _nameController.text,
+      _usernameController.text,
       _emailController.text,
       _passwordController.text,
     );
@@ -77,12 +124,61 @@ class _RegisterPageState extends State<RegisterPage> {
             // Judul
             Text('Daftar', style: textTheme.headlineLarge),
             const SizedBox(height: 16),
-            // Input Nama pengguna
+            // Input Nama
             _buildTextField(
-              label: 'Nama pengguna',
-              hint: 'Masukkan nama pengguna',
+              label: 'Nama',
+              hint: 'Masukkan nama lengkap',
               context: context,
               controller: _nameController,
+            ),
+            const SizedBox(height: 16),
+            // Input Username (Custom Logic)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Username', style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: _usernameController,
+                  onChanged: _onUsernameChanged,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: _kTextColor),
+                  decoration: InputDecoration(
+                    hintText: 'Masukkan username unik',
+                    contentPadding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 16.0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                      borderSide: BorderSide(
+                        color: _usernameAvailable == null 
+                            ? const Color(0xFFDDDDDD) 
+                            : (_usernameAvailable! ? Colors.green : Colors.red),
+                        width: 1.0,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                      borderSide: BorderSide(
+                        color: _usernameAvailable == null 
+                            ? _kPurpleColor 
+                            : (_usernameAvailable! ? Colors.green : Colors.red),
+                        width: 2,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                      borderSide: BorderSide(
+                        color: _usernameAvailable == null 
+                            ? const Color(0xFFDDDDDD) 
+                            : (_usernameAvailable! ? Colors.green : Colors.red),
+                        width: 1.0,
+                      ),
+                    ),
+                    helperText: _usernameMessage,
+                    helperStyle: TextStyle(
+                      color: _usernameAvailable == true ? Colors.green : Colors.red,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             // Input Email

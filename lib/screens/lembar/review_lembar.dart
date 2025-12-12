@@ -412,6 +412,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             'published',
             snippet: _snippetController.text.trim(),
             visibility: visibility,
+            thumbnail: _coverImage,
           )
         : await postService.createPost(
             _titleController.text.trim(),
@@ -419,6 +420,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             'published',
             snippet: _snippetController.text.trim(),
             visibility: visibility,
+            thumbnail: _coverImage,
           );
 
     // Tutup loading
@@ -461,6 +463,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             'draft',
             snippet: _snippetController.text.trim(),
             visibility: 'public',
+            thumbnail: _coverImage,
           )
         : await postService.createPost(
             _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
@@ -468,6 +471,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             'draft',
             snippet: _snippetController.text.trim(),
             visibility: 'public',
+            thumbnail: _coverImage,
           );
 
     // Tutup loading
