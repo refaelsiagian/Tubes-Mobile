@@ -30,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _filteredBlogs = [];
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
+  bool _isLoading = false;
   final _postService = PostService();
 
 
@@ -43,8 +44,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadBlogs() async {
+    setState(() => _isLoading = true);
     final posts = await _postService.getPosts();
+    _processPosts(posts);
+  }
 
+  Future<void> _filterBlogs(String query) async {
+    setState(() => _isLoading = true);
+    final posts = await _postService.getPosts(search: query);
+    _processPosts(posts);
+  }
+
+  void _processPosts(List<Map<String, dynamic>> posts) {
     final lembarBlogs = posts
         .map(
           (post) => {
@@ -52,13 +63,13 @@ class _HomePageState extends State<HomePage> {
             'authorName': post['author']['name'] ?? 'Pengguna',
             'authorInitials': '', 
             'title': post['title'] ?? 'Untitled',
-            'snippet': post['snippet'] ?? '', // Backend might not send snippet yet
+            'snippet': post['snippet'] ?? '',
             'thumbnail': post['thumbnail_url'],
-            'date': _formatDate(post['published_at']), // Use _formatDate here
+            'date': _formatDate(post['published_at']),
             'likes': post['stats']['likes']?.toString() ?? '0',
             'comments': post['stats']['comments']?.toString() ?? '0',
-            'content': post['content'], // Might be null in list view
-            'verified': false, // Backend doesn't have verified status yet
+            'content': post['content'],
+            'verified': false,
             'is_liked': post['is_liked'] ?? false,
             'is_bookmarked': post['is_bookmarked'] ?? false,
           },
@@ -69,24 +80,11 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _blogs = lembarBlogs;
         _filteredBlogs = lembarBlogs;
+        _isLoading = false;
       });
     }
   }
 
-  void _filterBlogs(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredBlogs = _blogs;
-      } else {
-        _filteredBlogs = _blogs.where((blog) {
-          final title = blog['title'].toString().toLowerCase();
-          final author = blog['authorName'].toString().toLowerCase();
-          final searchLower = query.toLowerCase();
-          return title.contains(searchLower) || author.contains(searchLower);
-        }).toList();
-      }
-    });
-  }
   ImageProvider _getSmartImage(String? path, String defaultAsset) {
     if (path == null || path.isEmpty) {
       return AssetImage(defaultAsset);
@@ -210,7 +208,8 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _searchController,
-                      onChanged: _filterBlogs,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: _filterBlogs,
                       decoration: InputDecoration(
                         hintText: 'Cari tulisan atau penulis...',
                         prefixIcon: const Icon(Icons.search, color: _kSubTextColor),
@@ -230,39 +229,41 @@ class _HomePageState extends State<HomePage> {
 
             // === BLOG FEED ===
             Expanded(
-              child: _filteredBlogs.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.feed_outlined,
-                            size: 64,
-                            color: Colors.grey[200],
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: _kPurpleColor))
+                  : _filteredBlogs.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.feed_outlined,
+                                size: 64,
+                                color: Colors.grey[200],
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                "Belum ada tulisan terbaru",
+                                style: TextStyle(color: _kSubTextColor),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            "Belum ada tulisan terbaru",
-                            style: TextStyle(color: _kSubTextColor),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20.0,
+                            vertical: 16.0,
                           ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20.0,
-                        vertical: 16.0,
-                      ),
-                      itemCount: _filteredBlogs.length,
-                      itemBuilder: (context, index) {
-                        final blog = _filteredBlogs[index];
-                        return _buildModernBlogCard(
-                          blog,
-                          textTheme,
-                          primaryColor,
-                        );
-                      },
-                    ),
+                          itemCount: _filteredBlogs.length,
+                          itemBuilder: (context, index) {
+                            final blog = _filteredBlogs[index];
+                            return _buildModernBlogCard(
+                              blog,
+                              textTheme,
+                              primaryColor,
+                            );
+                          },
+                        ),
             ),
           ],
         ),

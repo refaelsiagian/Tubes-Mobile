@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,14 +7,23 @@ import 'auth_service.dart';
 class PostService {
   static const String baseUrl = AuthService.baseUrl;
 
-  Future<List<Map<String, dynamic>>> getPosts({int? userId}) async {
+  Future<List<Map<String, dynamic>>> getPosts({int? userId, String? search}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
       String url = '$baseUrl/posts';
+      List<String> queryParams = [];
+      
       if (userId != null) {
-        url += '?user_id=$userId';
+        queryParams.add('user_id=$userId');
+      }
+      if (search != null && search.isNotEmpty) {
+        queryParams.add('search=$search');
+      }
+      
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
       }
 
       final response = await http.get(
@@ -184,27 +194,30 @@ class PostService {
   }
 
 
-  Future<Map<String, dynamic>> createPost(String title, String content, String status, {String? snippet, String? visibility}) async {
+  Future<Map<String, dynamic>> createPost(String title, String content, String status, {String? snippet, String? visibility, File? thumbnail}) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     final url = Uri.parse('$baseUrl/posts');
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'title': title,
-          'content': content,
-          'status': status,
-          'snippet': snippet,
-          'visibility': visibility ?? 'public',
-        }),
-      );
+      var request = http.MultipartRequest('POST', url);
+      request.headers.addAll({
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
+
+      request.fields['title'] = title;
+      request.fields['content'] = content;
+      request.fields['status'] = status;
+      if (snippet != null) request.fields['snippet'] = snippet;
+      request.fields['visibility'] = visibility ?? 'public';
+
+      if (thumbnail != null) {
+        request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         return {
@@ -224,26 +237,32 @@ class PostService {
       };
     }
   }
-  Future<Map<String, dynamic>> updatePost(int id, String title, String content, String status, {String? snippet, String? visibility}) async {
+
+  Future<Map<String, dynamic>> updatePost(int id, String title, String content, String status, {String? snippet, String? visibility, File? thumbnail}) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
+    final url = Uri.parse('$baseUrl/posts/$id');
     
     try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/posts/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'title': title,
-          'content': content,
-          'status': status,
-          'snippet': snippet,
-          'visibility': visibility,
-        }),
-      );
+      var request = http.MultipartRequest('POST', url); // Use POST with _method=PUT for Laravel
+      request.headers.addAll({
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
+
+      request.fields['_method'] = 'PUT'; // Laravel spoofing
+      request.fields['title'] = title;
+      request.fields['content'] = content;
+      request.fields['status'] = status;
+      if (snippet != null) request.fields['snippet'] = snippet;
+      if (visibility != null) request.fields['visibility'] = visibility;
+
+      if (thumbnail != null) {
+        request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         return {

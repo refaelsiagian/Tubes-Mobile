@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/services/auth_service.dart';
 import '../auth/login_page.dart';
-import '../auth/welcome_page.dart';
 
 // Konstanta Warna
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -91,7 +90,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       await _authService.logout();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const WelcomePage()),
+          MaterialPageRoute(
+            builder: (context) => LoginPage(
+              onRegisterTap: () {}, // Placeholder callbacks
+              onForgotTap: () {},
+            ),
+          ),
           (route) => false,
         );
       }

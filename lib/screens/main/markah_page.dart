@@ -1,7 +1,6 @@
 import 'dart:io'; // WAJIB ADA
 import 'package:flutter/material.dart';
 import '../../widgets/bottom_nav_bar.dart';
-import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
 import '../../data/services/post_service.dart';
 import 'blog_page.dart';
@@ -304,7 +303,6 @@ class _MarkahPageState extends State<MarkahPage> {
         currentIndex: _currentNavIndex,
         onTap: _onItemTapped,
       ),
-      floatingActionButton: const ExpandableFAB(),
     );
   }
 
