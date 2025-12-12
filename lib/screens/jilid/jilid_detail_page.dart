@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../data/services/series_service.dart';
 import '../main/blog_page.dart';
 import 'edit_jilid_page.dart'; // Import halaman edit
 
@@ -32,17 +32,26 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
   }
 
   Future<void> _loadJilidContent() async {
-    // Kita ambil list lembar LANGSUNG dari data jilid
-    // karena jilid menyimpan array 'lembar' di dalamnya.
-    final List<dynamic> rawLembar = _currentJilidData['lembar'] ?? [];
-
-    if (mounted) {
-      setState(() {
-        _lembarList = rawLembar
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-        _isLoading = false;
-      });
+    final seriesService = SeriesService();
+    // Fetch fresh data from API
+    final result = await seriesService.getSeriesDetail(int.tryParse(_currentJilidData['id'].toString()) ?? 0);
+    
+    if (result['success']) {
+      final data = result['data'];
+      if (mounted) {
+        setState(() {
+          _currentJilidData = data;
+          final List<dynamic> rawLembar = data['posts'] ?? [];
+          _lembarList = rawLembar
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+          _isLoading = false;
+        });
+      }
+    } else {
+       if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -57,16 +66,8 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
 
     // Refresh data setelah kembali dari Edit
     if (result == true) {
-      // Ambil data terbaru dari storage
-      final allJilid = await LembarStorage.getJilid();
-      final updatedJilid = allJilid.firstWhere(
-        (j) => j['id'].toString() == _currentJilidData['id'].toString(),
-        orElse: () => _currentJilidData,
-      );
-
       setState(() {
-        _currentJilidData = updatedJilid;
-        _isLoading = true; // Reload list konten
+        _isLoading = true; 
       });
       _loadJilidContent();
 
@@ -104,17 +105,26 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
 
     if (confirm == true) {
       if (_currentJilidData['id'] != null) {
-        await LembarStorage.deleteJilid(_currentJilidData['id'].toString());
-      }
-
-      if (mounted) {
-        Navigator.pop(context); // Pop Detail Page
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Jilid berhasil dihapus"),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        final seriesService = SeriesService();
+        final success = await seriesService.deleteSeries(int.tryParse(_currentJilidData['id'].toString()) ?? 0);
+        
+        if (success) {
+          if (mounted) {
+            Navigator.pop(context); // Pop Detail Page
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Jilid berhasil dihapus"),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } else {
+           if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Gagal menghapus jilid")),
+            );
+          }
+        }
       }
     }
   }
@@ -328,19 +338,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
               context,
               MaterialPageRoute(
                 builder: (context) => BlogPage(
-                  blog: {
-                    'title': lembar['title'],
-                    'documentJson': lembar['documentJson'],
-                    'snippet': lembar['snippet'] ?? '',
-                    'date':
-                        lembar['date'] ?? _formatDate(lembar['publishedAt']),
-                    'authorName': lembar['authorName'] ?? 'Pengguna',
-                    'authorInitials': '',
-                    'thumbnail': lembar['thumbnail'],
-                    'likes': lembar['likes'] ?? '0',
-                    'comments': lembar['comments'] ?? '0',
-                    'tags': lembar['tags'] ?? [],
-                  },
+                  postId: int.tryParse(lembar['id'].toString()) ?? 0,
                 ),
               ),
             );

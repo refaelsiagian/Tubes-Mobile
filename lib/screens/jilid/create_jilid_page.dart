@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lembar/select_lembar_page.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../data/services/series_service.dart';
 
 // Konstanta Warna (Konsisten dengan Profile Page)
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -431,31 +431,46 @@ class _CreateJilidPageState extends State<CreateJilidPage> {
       return;
     }
 
-    final jilidData = {
-      'title': _titleController.text.trim(),
-      'description': _descriptionController.text.trim(),
-      'count': _selectedLembar.length,
-      'thumbnail': null,
-      // PERBAIKAN 2: Pastikan yang disimpan adalah _selectedLembar
-      // yang sudah mencakup perubahan drag & drop
-      'lembar': List<Map<String, dynamic>>.from(_selectedLembar),
-    };
+    // Extract Post IDs
+    final List<int> postIds = _selectedLembar
+        .map((item) => int.tryParse(item['id'].toString()) ?? 0)
+        .where((id) => id != 0)
+        .toList();
 
-    await LembarStorage.saveJilid(jilidData);
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
-    final savedJilid = {
-      ...jilidData,
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-    };
+    final seriesService = SeriesService();
+    final result = await seriesService.createSeries(
+      _titleController.text.trim(),
+      _descriptionController.text.trim(),
+      postIds,
+    );
+
+    // Hide loading
+    if (mounted) Navigator.pop(context);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Jilid berhasil dibuat'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-      Navigator.of(context).pop(savedJilid);
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Jilid berhasil dibuat'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+        Navigator.of(context).pop(result['data']);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Gagal membuat jilid'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }

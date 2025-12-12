@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import '../../data/services/lembar_storage.dart';
+import 'dart:convert';
+import '../../data/services/post_service.dart';
+import '../../data/services/post_service.dart';
 
 // Konstanta Warna Modern
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -16,12 +18,16 @@ class ReviewLembarPage extends StatefulWidget {
   final String? title;
   final String? content;
   final dynamic documentJson;
+  final bool isEditingDraft;
+  final int? draftId;
 
   const ReviewLembarPage({
     super.key,
     this.title,
     this.content,
     this.documentJson,
+    this.isEditingDraft = false,
+    this.draftId,
   });
 
   @override
@@ -383,61 +389,100 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
       return;
     }
 
-    final String thumbnailPath = _coverImage != null 
-        ? _coverImage!.path 
-        : 'assets/images/thumb_default.jpg';
+    // Tampilkan loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
-    final lembarData = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'title': _titleController.text.trim(),
-      'snippet': _snippetController.text.trim(),
-      'content': widget.content ?? '',
-      'documentJson': widget.documentJson,
-      'visibility': _selectedVisibility,
-      'thumbnail': thumbnailPath,
-      'date': DateTime.now().toString(),
-      'publishedAt': DateTime.now().toIso8601String(),
-      'authorName': 'Pengguna',
-      'authorInitials': '',
-      'likes': '0',
-      'comments': '0',
-    };
+    final postService = PostService();
+    // Kirim documentJson sebagai string agar format Quill terjaga
+    final contentToSend = jsonEncode(widget.documentJson); 
+    
+    // Map dropdown value to backend visibility
+    final visibility = _selectedVisibility == 'Publik' ? 'public' : 'private';
+    
+    // Check if editing draft or creating new
+    final result = widget.isEditingDraft && widget.draftId != null
+        ? await postService.updatePost(
+            widget.draftId!,
+            _titleController.text.trim(),
+            contentToSend,
+            'published',
+            snippet: _snippetController.text.trim(),
+            visibility: visibility,
+          )
+        : await postService.createPost(
+            _titleController.text.trim(),
+            contentToSend,
+            'published',
+            snippet: _snippetController.text.trim(),
+            visibility: visibility,
+          );
 
-    await LembarStorage.savePublishedLembar(lembarData);
-    await LembarStorage.saveStory(lembarData);
+    // Tutup loading
+    if (mounted) Navigator.pop(context);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Lembar berhasil dipublikasikan!'), backgroundColor: _kPurpleColor));
-      Navigator.of(context).pop(); 
-      Navigator.of(context).pop(); 
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Lembar berhasil dipublikasikan!'), backgroundColor: _kPurpleColor),
+        );
+        // Kembali ke Home (pop sampai root atau halaman utama)
+        Navigator.of(context).pop(); 
+        Navigator.of(context).pop(); 
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal mempublikasikan'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   Future<void> _onDraftPressed() async {
-    final String thumbnailPath = _coverImage != null 
-        ? _coverImage!.path 
-        : 'assets/images/thumb_default.jpg';
+    // Tampilkan loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
-    final draftData = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'title': _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
-      'snippet': _snippetController.text.trim(),
-      'content': widget.content ?? '',
-      'documentJson': widget.documentJson,
-      'thumbnail': thumbnailPath,
-      'visibility': 'Draft',
-      'date': DateTime.now().toString(),
-      'publishedAt': DateTime.now().toIso8601String(),
-      'authorName': 'Pengguna',
-      'authorInitials': '',
-    };
+    final postService = PostService();
+    // Kirim documentJson sebagai string agar format Quill terjaga
+    final contentToSend = jsonEncode(widget.documentJson); 
+    
+    // Check if editing draft or creating new
+    final result = widget.isEditingDraft && widget.draftId != null
+        ? await postService.updatePost(
+            widget.draftId!,
+            _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
+            contentToSend,
+            'draft',
+            snippet: _snippetController.text.trim(),
+            visibility: 'public',
+          )
+        : await postService.createPost(
+            _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
+            contentToSend,
+            'draft',
+            snippet: _snippetController.text.trim(),
+            visibility: 'public',
+          );
 
-    await LembarStorage.saveStory(draftData);
+    // Tutup loading
+    if (mounted) Navigator.pop(context);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Disimpan ke Draft')));
-      Navigator.of(context).pop();
-      Navigator.of(context).pop();
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Disimpan ke Draft')));
+        Navigator.of(context).pop();
+        Navigator.of(context).pop();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal menyimpan draft'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 }

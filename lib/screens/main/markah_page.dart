@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../data/services/post_service.dart';
 import 'blog_page.dart';
 
 // Konstanta Warna Modern
@@ -24,6 +24,7 @@ class _MarkahPageState extends State<MarkahPage> {
 
   List<Map<String, dynamic>> _bookmarkedBlogsList = [];
   bool _isLoading = true;
+  final _postService = PostService();
 
   final String _defaultAvatarAsset = 'assets/images/ava_default.jpg';
   final String _defaultThumbAsset = 'assets/images/thumb_default.jpg';
@@ -35,22 +36,25 @@ class _MarkahPageState extends State<MarkahPage> {
   }
 
   Future<void> _loadBookmarkedBlogs() async {
-    final publishedLembar = await LembarStorage.getPublishedLembar();
+    final postService = PostService();
+    final posts = await postService.getBookmarks();
 
-    final lembarBlogs = publishedLembar
+    final lembarBlogs = posts
         .map(
-          (lembar) => {
-            'authorName': lembar['authorName'] ?? 'Pengguna',
+          (post) => {
+            'id': post['id'],
+            'authorName': post['author']?['name'] ?? 'Pengguna',
             'authorInitials': '', 
-            'title': lembar['title'] ?? 'Untitled',
-            'snippet': lembar['snippet'] ?? '',
-            'thumbnail': lembar['thumbnail'],
-            'date': _formatDate(lembar['publishedAt']),
-            'likes': lembar['likes'] ?? '0',
-            'comments': lembar['comments'] ?? '0',
-            'documentJson': lembar['documentJson'],
-            'content': lembar['content'],
-            'tags': lembar['tags'] ?? [],
+            'title': post['title'] ?? 'Untitled',
+            'snippet': post['snippet'] ?? '',
+            'thumbnail': post['thumbnail_url'],
+            'date': _formatDate(post['published_at']),
+            'likes': post['stats']?['likes']?.toString() ?? '0',
+            'comments': post['stats']?['comments']?.toString() ?? '0',
+            'documentJson': null, // Not needed for display
+            'content': post['content'],
+            'tags': [],
+            'is_liked': post['is_liked'] ?? false,
           },
         )
         .toList();
@@ -78,11 +82,18 @@ class _MarkahPageState extends State<MarkahPage> {
   }
 
   String _formatDate(String? dateString) {
-    if (dateString == null) return 'Baru saja';
+    print('📅 _formatDate received: $dateString');
+    if (dateString == null || dateString.isEmpty) {
+      print('📅 dateString is null or empty');
+      return 'Baru saja';
+    }
     try {
       final date = DateTime.parse(dateString);
-      return '${date.day}/${date.month}/${date.year}';
+      final formatted = '${date.day}/${date.month}/${date.year}';
+      print('📅 Formatted date: $formatted');
+      return formatted;
     } catch (e) {
+      print('❌ Error parsing date: $e');
       return 'Baru saja';
     }
   }
@@ -131,17 +142,24 @@ class _MarkahPageState extends State<MarkahPage> {
                   icon: Icons.bookmark_remove_rounded,
                   label: 'Hapus dari Markah',
                   color: Colors.redAccent,
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
-                    setState(() {
-                      _bookmarkedBlogsList.remove(blog);
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Markah dihapus"),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
+                    final postService = PostService();
+                    final success = await postService.removeBookmark(blog['id']);
+                    
+                    if (success) {
+                      setState(() {
+                        _bookmarkedBlogsList.remove(blog);
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Markah dihapus"),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
               ],
@@ -312,7 +330,7 @@ class _MarkahPageState extends State<MarkahPage> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => BlogPage(blog: blog)),
+              MaterialPageRoute(builder: (context) => BlogPage(postId: int.tryParse(blog['id'].toString()) ?? 0)),
             );
           },
           child: Padding(
@@ -378,17 +396,56 @@ class _MarkahPageState extends State<MarkahPage> {
                       
                       Row(
                         children: [
-                          // Like (Hanya Ikon)
-                          Icon(
-                            Icons.favorite_border_rounded,
-                            size: 16,
-                            color: _kSubTextColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            blog['likes']?.toString() ?? '0',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: _kSubTextColor,
+                          // Like Button (Dynamic & Functional)
+                          GestureDetector(
+                            onTap: () async {
+                              final isLiked = blog['is_liked'] ?? false;
+                              
+                              // Optimistic update
+                              setState(() {
+                                blog['is_liked'] = !isLiked;
+                                final currentLikes = int.tryParse(blog['likes'].toString()) ?? 0;
+                                blog['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1).toString();
+                              });
+                              
+                              // Call API
+                              final result = await _postService.toggleLike(blog['id']);
+                              
+                              if (!result['success']) {
+                                // Revert on failure
+                                setState(() {
+                                  blog['is_liked'] = isLiked;
+                                  final currentLikes = int.tryParse(blog['likes'].toString()) ?? 0;
+                                  blog['likes'] = (isLiked ? currentLikes + 1 : currentLikes - 1).toString();
+                                });
+                              } else {
+                                // Update with actual count from server
+                                if (result['data'] != null && result['data']['new_count'] != null) {
+                                  setState(() {
+                                    blog['likes'] = result['data']['new_count'].toString();
+                                  });
+                                }
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                Icon(
+                                  (blog['is_liked'] ?? false) 
+                                      ? Icons.favorite 
+                                      : Icons.favorite_border_rounded,
+                                  size: 16,
+                                  color: (blog['is_liked'] ?? false) 
+                                      ? Colors.red 
+                                      : _kSubTextColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  blog['likes']?.toString() ?? '0',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: _kSubTextColor,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -408,16 +465,23 @@ class _MarkahPageState extends State<MarkahPage> {
                           const Spacer(),
                           
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _bookmarkedBlogsList.remove(blog);
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Dihapus dari Markah"),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
+                            onTap: () async {
+                              final postService = PostService();
+                              final success = await postService.removeBookmark(blog['id']);
+                              
+                              if (success) {
+                                setState(() {
+                                  _bookmarkedBlogsList.remove(blog);
+                                });
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Dihapus dari Markah"),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             child: const Icon(
                               Icons.bookmark_rounded, 

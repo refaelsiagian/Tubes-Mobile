@@ -4,7 +4,8 @@ import 'blog_page.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../core/utils/navigation_helper.dart';
+import '../../data/services/post_service.dart';
 
 // Konstanta Warna Modern
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -26,6 +27,10 @@ class _HomePageState extends State<HomePage> {
   static const int _currentNavIndex = 0;
 
   List<Map<String, dynamic>> _blogs = [];
+  List<Map<String, dynamic>> _filteredBlogs = [];
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+  final _postService = PostService();
 
 
   final String _defaultAvatarAsset = 'assets/images/ava_default.jpg';
@@ -38,27 +43,48 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadBlogs() async {
-    final publishedLembar = await LembarStorage.getPublishedLembar();
+    final posts = await _postService.getPosts();
 
-    final lembarBlogs = publishedLembar
+    final lembarBlogs = posts
         .map(
-          (lembar) => {
-            'authorName': lembar['authorName'] ?? 'Pengguna',
+          (post) => {
+            'id': post['id'],
+            'authorName': post['author']['name'] ?? 'Pengguna',
             'authorInitials': '', 
-            'title': lembar['title'] ?? 'Untitled',
-            'snippet': lembar['snippet'] ?? '',
-            'thumbnail': lembar['thumbnail'],
-            'date': _formatDate(lembar['publishedAt']),
-            'likes': lembar['likes'] ?? '0',
-            'comments': lembar['comments'] ?? '0',
-            'documentJson': lembar['documentJson'],
-            'content': lembar['content'],
+            'title': post['title'] ?? 'Untitled',
+            'snippet': post['snippet'] ?? '', // Backend might not send snippet yet
+            'thumbnail': post['thumbnail_url'],
+            'date': _formatDate(post['published_at']), // Use _formatDate here
+            'likes': post['stats']['likes']?.toString() ?? '0',
+            'comments': post['stats']['comments']?.toString() ?? '0',
+            'content': post['content'], // Might be null in list view
+            'verified': false, // Backend doesn't have verified status yet
+            'is_liked': post['is_liked'] ?? false,
+            'is_bookmarked': post['is_bookmarked'] ?? false,
           },
         )
         .toList();
 
+    if (mounted) {
+      setState(() {
+        _blogs = lembarBlogs;
+        _filteredBlogs = lembarBlogs;
+      });
+    }
+  }
+
+  void _filterBlogs(String query) {
     setState(() {
-      _blogs = lembarBlogs.reversed.toList();
+      if (query.isEmpty) {
+        _filteredBlogs = _blogs;
+      } else {
+        _filteredBlogs = _blogs.where((blog) {
+          final title = blog['title'].toString().toLowerCase();
+          final author = blog['authorName'].toString().toLowerCase();
+          final searchLower = query.toLowerCase();
+          return title.contains(searchLower) || author.contains(searchLower);
+        }).toList();
+      }
     });
   }
   ImageProvider _getSmartImage(String? path, String defaultAsset) {
@@ -76,7 +102,7 @@ class _HomePageState extends State<HomePage> {
 
 
   String _formatDate(String? dateString) {
-    if (dateString == null) return 'Baru saja';
+    if (dateString == null || dateString.isEmpty) return 'Baru saja';
     try {
       final date = DateTime.parse(dateString);
       final now = DateTime.now();
@@ -133,78 +159,78 @@ class _HomePageState extends State<HomePage> {
                   bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1.0),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Lembar',
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: _kTextColor,
-                            letterSpacing: -0.5,
-                            fontFamily: 'Serif',
-                          ),
-                        ),
-                        const TextSpan(
-                          text: '.',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: _kPurpleColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Stack(
-                    alignment: Alignment.topRight,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Lembar',
+                              style: textTheme.headlineMedium?.copyWith(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                color: _kTextColor,
+                                letterSpacing: -0.5,
+                                fontFamily: 'Serif',
+                              ),
+                            ),
+                            const TextSpan(
+                              text: '.',
+                              style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                                color: _kPurpleColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       IconButton(
                         onPressed: () {
                           setState(() {
-                            _isNotificationClicked = !_isNotificationClicked;
+                            _isSearching = !_isSearching;
+                            if (!_isSearching) {
+                              _searchController.clear();
+                              _filterBlogs('');
+                            }
                           });
                         },
                         icon: Icon(
-                          _isNotificationClicked
-                              ? Icons.notifications_rounded
-                              : Icons.notifications_none_rounded,
-                          color: _isNotificationClicked
-                              ? _kPurpleColor
-                              : _kTextColor,
+                          _isSearching ? Icons.close : Icons.search,
+                          color: _kTextColor,
                           size: 28,
                         ),
-                        splashRadius: 24,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
                       ),
-                      if (!_isNotificationClicked)
-                        Positioned(
-                          right: 2,
-                          top: 2,
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
+                  if (_isSearching) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _searchController,
+                      onChanged: _filterBlogs,
+                      decoration: InputDecoration(
+                        hintText: 'Cari tulisan atau penulis...',
+                        prefixIcon: const Icon(Icons.search, color: _kSubTextColor),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
 
             // === BLOG FEED ===
             Expanded(
-              child: _blogs.isEmpty
+              child: _filteredBlogs.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -227,9 +253,9 @@ class _HomePageState extends State<HomePage> {
                         horizontal: 20.0,
                         vertical: 16.0,
                       ),
-                      itemCount: _blogs.length,
+                      itemCount: _filteredBlogs.length,
                       itemBuilder: (context, index) {
-                        final blog = _blogs[index];
+                        final blog = _filteredBlogs[index];
                         return _buildModernBlogCard(
                           blog,
                           textTheme,
@@ -245,7 +271,9 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _currentNavIndex,
         onTap: _onItemTapped,
       ),
-      floatingActionButton: const ExpandableFAB(),
+      floatingActionButton: ExpandableFAB(
+        onAddLembarComplete: _loadBlogs,
+      ),
     );
   }
 
@@ -368,8 +396,8 @@ class _HomePageState extends State<HomePage> {
     Color primaryColor,
   ) {
     final blogIndex = _blogs.indexOf(blog);
-    final isLiked = _likedBlogs[blogIndex] ?? false;
-    final isBookmarked = _bookmarkedBlogs[blogIndex] ?? false;
+    final isLiked = blog['is_liked'] ?? false; // Read from API data
+    final isBookmarked = blog['is_bookmarked'] ?? false; // Read from API data
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -394,20 +422,7 @@ class _HomePageState extends State<HomePage> {
               context,
               MaterialPageRoute(
                 builder: (context) => BlogPage(
-                  blog: {
-                    'title': blog['title'],
-                    'documentJson': blog['documentJson'],
-                    'snippet': blog['snippet'] ?? '',
-                    'date': blog['date'],
-                    'authorName': blog['authorName'],
-                    'authorInitials': blog['authorInitials'],
-                    'thumbnail': blog['thumbnail'],
-                    'likes': blog['likes'],
-                    'comments': blog['comments'],
-                    'tags': blog['tags'] ?? [],
-                    'commentsList': blog['commentsList'] ?? [],
-                    'otherBlogs': blog['otherBlogs'] ?? [],
-                  },
+                  postId: blog['id'],
                 ),
               ),
             );
@@ -492,10 +507,38 @@ class _HomePageState extends State<HomePage> {
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () {
+                            onTap: () async {
+                              // Optimistic update
                               setState(() {
-                                _likedBlogs[blogIndex] = !isLiked;
+                                blog['is_liked'] = !isLiked;
+                                // Update likes count
+                                final currentLikes = int.tryParse(blog['likes'].toString()) ?? 0;
+                                blog['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1).toString();
                               });
+                              
+                              // Call API
+                              final result = await _postService.toggleLike(blog['id']);
+                              
+                              if (!result['success']) {
+                                // Revert on failure
+                                setState(() {
+                                  blog['is_liked'] = isLiked;
+                                  final currentLikes = int.tryParse(blog['likes'].toString()) ?? 0;
+                                  blog['likes'] = (isLiked ? currentLikes + 1 : currentLikes - 1).toString();
+                                });
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(result['message'] ?? 'Gagal menyukai')),
+                                  );
+                                }
+                              } else {
+                                // Update with actual count from server
+                                if (result['data'] != null && result['data']['new_count'] != null) {
+                                  setState(() {
+                                    blog['likes'] = result['data']['new_count'].toString();
+                                  });
+                                }
+                              }
                             },
                             child: Row(
                               children: [
@@ -535,10 +578,40 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const Spacer(),
                           GestureDetector(
-                            onTap: () {
+                            onTap: () async {
+                              // Optimistic update
                               setState(() {
-                                _bookmarkedBlogs[blogIndex] = !isBookmarked;
+                                blog['is_bookmarked'] = !isBookmarked;
                               });
+                              
+                              // Call API
+                              bool success;
+                              if (!isBookmarked) {
+                                success = await _postService.addBookmark(blog['id']);
+                              } else {
+                                success = await _postService.removeBookmark(blog['id']);
+                              }
+                              
+                              if (!success) {
+                                // Revert on failure
+                                setState(() {
+                                  blog['is_bookmarked'] = isBookmarked;
+                                });
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Gagal mengubah markah')),
+                                  );
+                                }
+                              } else {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(isBookmarked ? 'Dihapus dari Markah' : 'Ditambahkan ke Markah'),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             child: Icon(
                               isBookmarked

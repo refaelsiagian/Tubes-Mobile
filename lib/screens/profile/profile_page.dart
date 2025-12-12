@@ -7,7 +7,11 @@ import '../jilid/edit_jilid_page.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../data/services/auth_service.dart';
+import '../../data/services/post_service.dart';
+import '../../data/services/series_service.dart';
+import '../lembar/edit_lembar.dart';
+import 'account_settings_page.dart';
 import 'edit_profile_page.dart';
 
 // Konstanta Warna Modern
@@ -29,13 +33,13 @@ class _ProfilePageState extends State<ProfilePage>
   String _selectedFilter = 'Public';
   static const int _currentNavIndex = 3;
 
-  // Sample user data
-  String _userName = 'Dells';
-  final String _userInitials = 'AT';
-  String _userBio =
-      'Penulis & Kreator yang fokus pada kesederhanaan & kegunaan.';
-  String _userEmail = 'dells.adelia@example.com';
-  String _currentUsername = '@dells';
+  // Dynamic user data
+  String _userName = '';
+  String _userInitials = '';
+  String _userBio = 'Belum ada bio';
+  int? _userId; // Store User ID for fetching posts
+  String _userEmail = '';
+  String _currentUsername = '';
 
   // --- PATH ASSET DEFAULT ---
   final String _defaultBannerAsset = 'assets/images/banner_default.jpg';
@@ -45,25 +49,17 @@ class _ProfilePageState extends State<ProfilePage>
   String? _bannerImagePath;
   String? _profileImagePath;
 
-  final int _followers = 120;
-  final int _following = 45;
+  int _followers = 0;
+  int _following = 0;
 
   List<Map<String, dynamic>> _stories = [];
   List<Map<String, dynamic>> _jilid = [];
+  List<Map<String, dynamic>> _likedBlogs = [];
+  final _authService = AuthService();
+  bool _isLoadingProfile = true;
 
-  // Sample liked blogs
-  final List<Map<String, dynamic>> _likedBlogs = [
-    {
-      'authorName': 'John Doe',
-      'authorInitials': '',
-      'title': 'Lorem ipsum dolor sit amet',
-      'snippet': 'Consectetur adipiscing elit...',
-      'thumbnail': null,
-      'date': '6d ago',
-      'likes': '1.5K',
-      'comments': '14',
-    },
-  ];
+  final _postService = PostService();
+  final _seriesService = SeriesService();
 
   @override
   void initState() {
@@ -80,27 +76,142 @@ class _ProfilePageState extends State<ProfilePage>
     _bannerImagePath = _defaultBannerAsset;
     _profileImagePath = _defaultAvatarAsset;
     
-    _loadStories();
+    _loadProfile();
+    // _loadStories(); // Moved to _loadProfile
     _loadJilid();
+  }
+
+  Future<void> _loadProfile() async {
+    final result = await _authService.getProfile();
+    if (result['success']) {
+      final data = result['data'];
+      if (mounted) {
+        setState(() {
+          _userName = data['name'] ?? '';
+          if (_userName.isNotEmpty) {
+            _userInitials = _userName.trim().split(' ').map((l) => l[0]).take(2).join().toUpperCase();
+          }
+          _currentUsername = '@${data['username']}';
+          _userBio = data['bio'] ?? 'Belum ada bio';
+          _profileImagePath = data['avatar_url'];
+          _bannerImagePath = data['banner_url'];
+          
+          if (data['stats'] != null) {
+            _followers = data['stats']['followers'] ?? 0;
+            _following = data['stats']['following'] ?? 0;
+          }
+          
+          _userId = data['id']; // Set User ID
+          _isLoadingProfile = false;
+        });
+        
+        // Load stories after we have the User ID
+        _loadStories();
+      }
+    } else {
+      if (mounted) {
+        setState(() => _isLoadingProfile = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal memuat profil')),
+        );
+      }
+    }
   }
 
   void _refreshData() {
     _loadJilid();
     _loadStories();
+    _loadLikedPosts();
   }
 
   Future<void> _loadStories() async {
-    final stories = await LembarStorage.getStories();
-    setState(() {
-      _stories = stories;
-    });
+    if (_userId == null) return;
+
+    final posts = await _postService.getPosts(userId: _userId);
+    
+    final stories = posts.map((post) => {
+      'id': post['id'],
+      'title': post['title'] ?? 'Untitled',
+      'snippet': post['snippet'] ?? '',
+      'thumbnail': post['thumbnail_url'],
+      'date': _formatDate(post['published_at']),
+      'likes': post['stats']['likes']?.toString() ?? '0',
+      'comments': post['stats']['comments']?.toString() ?? '0',
+      'authorName': post['author']['name'] ?? 'Pengguna',
+      'status': post['status'] ?? 'published', // 'draft' or 'published'
+      'visibility': _mapVisibility(post['status'], post['visibility']), // Map to filter values
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _stories = stories;
+      });
+    }
   }
 
   Future<void> _loadJilid() async {
-    final jilid = await LembarStorage.getJilid();
+    if (_userId == null) return;
+    final jilid = await _seriesService.getSeries(userId: _userId);
     setState(() {
       _jilid = jilid;
     });
+  }
+
+  Future<void> _loadLikedPosts() async {
+    final posts = await _postService.getLikedPosts();
+    
+    final likedPosts = posts.map((post) => {
+      'id': post['id'],
+      'title': post['title'] ?? 'Untitled',
+      'snippet': post['snippet'] ?? '',
+      'thumbnail': post['thumbnail_url'],
+      'date': _formatDate(post['published_at']),
+      'likes': post['stats']['likes']?.toString() ?? '0',
+      'comments': post['stats']['comments']?.toString() ?? '0',
+      'authorName': post['author']['name'] ?? 'Pengguna',
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _likedBlogs = likedPosts;
+      });
+    }
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return 'Baru saja';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          if (difference.inMinutes == 0) {
+            return 'Baru saja';
+          }
+          return '${difference.inMinutes}m lalu';
+        }
+        return '${difference.inHours}j lalu';
+      } else if (difference.inDays == 1) {
+        return 'Kemarin';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}h lalu';
+      } else if (difference.inDays < 30) {
+        final weeks = (difference.inDays / 7).floor();
+        return '${weeks}w lalu';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Baru saja';
+    }
+  }
+
+  String _mapVisibility(String? status, String? visibility) {
+    if (status == 'draft') return 'Draft';
+    if (visibility == 'private') return 'Private';
+    return 'Public';
   }
 
   // === FUNGSI PINTAR: DETEKSI TIPE GAMBAR ===
@@ -119,7 +230,7 @@ class _ProfilePageState extends State<ProfilePage>
 
   // --- LOGIC MENU & VISIBILITY (Sama seperti sebelumnya) ---
   void _showStoryOptionMenu(BuildContext context, Map<String, dynamic> story) {
-    final currentVisibility = story['visibility'] ?? 'Publik';
+    final currentVisibility = story['visibility'] ?? 'Public';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -144,19 +255,48 @@ class _ProfilePageState extends State<ProfilePage>
                     ),
                   ),
                 ),
-                _buildMenuItem(
-                  icon: currentVisibility == 'Publik'
-                      ? Icons.lock_outline_rounded
-                      : Icons.public_rounded,
-                  label: currentVisibility == 'Publik'
-                      ? 'Ubah ke Private'
-                      : 'Ubah ke Publik',
-                  color: Colors.blueAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _changeVisibility(story);
-                  },
-                ),
+                // Dynamic menu based on visibility
+                if (currentVisibility == 'Public') ...[
+                  _buildMenuItem(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Ubah ke Private',
+                    color: Colors.blueAccent,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _changeVisibility(story, 'private');
+                    },
+                  ),
+                ] else if (currentVisibility == 'Private') ...[
+                  _buildMenuItem(
+                    icon: Icons.public_rounded,
+                    label: 'Ubah ke Public',
+                    color: Colors.blueAccent,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _changeVisibility(story, 'public');
+                    },
+                  ),
+                ] else if (currentVisibility == 'Draft') ...[
+                  _buildMenuItem(
+                    icon: Icons.public_rounded,
+                    label: 'Publish sebagai Public',
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _publishDraft(story, 'public');
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Publish sebagai Private',
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _publishDraft(story, 'private');
+                    },
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _buildMenuItem(
                   icon: Icons.delete_outline_rounded,
@@ -234,22 +374,65 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Future<void> _changeVisibility(Map<String, dynamic> story) async {
-    final currentVisibility = story['visibility'] ?? 'Publik';
-    final newVisibility = currentVisibility == 'Publik' ? 'Private' : 'Publik';
-    final newStoryData = Map<String, dynamic>.from(story);
-    newStoryData['visibility'] = newVisibility;
+  Future<void> _changeVisibility(Map<String, dynamic> story, String newVisibility) async {
+    final postId = story['id'];
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mengubah visibility...'), duration: Duration(seconds: 1)),
+      );
+    }
 
-    if (story['id'] != null) {
-      await LembarStorage.updateStory(story['id'].toString(), newStoryData);
-      _loadStories();
-      if (mounted) {
+    // Only send visibility - backend validation allows partial updates
+    final result = await _postService.updatePost(
+      postId,
+      '', // title not required for visibility change
+      '', // content not required for visibility change  
+      '', // status not required for visibility change
+      visibility: newVisibility,
+    );
+
+    if (mounted) {
+      if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Visibilitas diubah menjadi $newVisibility'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 1),
-          ),
+          SnackBar(content: Text('Berhasil ubah ke ${newVisibility == 'public' ? 'Public' : 'Private'}')),
+        );
+        _refreshData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal mengubah visibility'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _publishDraft(Map<String, dynamic> story, String visibility) async {
+    final postId = story['id'];
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mempublikasikan...'), duration: Duration(seconds: 1)),
+      );
+    }
+
+    // Only send status and visibility - backend allows partial updates
+    final result = await _postService.updatePost(
+      postId,
+      '', // title not required
+      '', // content not required
+      'published', // Change status to published
+      visibility: visibility,
+    );
+
+    if (mounted) {
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Berhasil publish sebagai ${visibility == 'public' ? 'Public' : 'Private'}')),
+        );
+        _refreshData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal mempublikasikan'), backgroundColor: Colors.red),
         );
       }
     }
@@ -278,15 +461,23 @@ class _ProfilePageState extends State<ProfilePage>
     );
 
     if (confirm == true && story['id'] != null) {
-      await LembarStorage.deleteStory(story['id'].toString());
-      _loadStories();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cerita berhasil dihapus'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      final success = await _postService.deletePost(story['id']);
+      if (success) {
+        _loadStories();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cerita berhasil dihapus'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menghapus cerita')),
+          );
+        }
       }
     }
   }
@@ -324,12 +515,20 @@ class _ProfilePageState extends State<ProfilePage>
     );
 
     if (confirm == true && jilid['id'] != null) {
-      await LembarStorage.deleteJilid(jilid['id'].toString());
-      _loadJilid();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Jilid berhasil dihapus')));
+      final success = await _seriesService.deleteSeries(jilid['id']);
+      if (success) {
+        _loadJilid();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Jilid berhasil dihapus')));
+        }
+      } else {
+         if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Gagal menghapus jilid')));
+        }
       }
     }
   }
@@ -386,17 +585,20 @@ class _ProfilePageState extends State<ProfilePage>
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => LoginPage(
-                                onRegisterTap: () {},
-                                onForgotTap: () {},
+                        onPressed: () async {
+                          await _authService.logout();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => LoginPage(
+                                  onRegisterTap: () {},
+                                  onForgotTap: () {},
+                                ),
                               ),
-                            ),
-                            (Route<dynamic> route) => false,
-                          );
+                              (Route<dynamic> route) => false,
+                            );
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
@@ -481,6 +683,7 @@ class _ProfilePageState extends State<ProfilePage>
         _userName = result['name'] ?? _userName;
         _currentUsername = result['username'] ?? _currentUsername;
         _userBio = result['bio'] ?? _userBio;
+        _userId = result['id']; // Save ID
         if (result['profilePath'] != null) _profileImagePath = result['profilePath'];
         if (result['bannerPath'] != null) _bannerImagePath = result['bannerPath'];
       });
@@ -500,9 +703,11 @@ class _ProfilePageState extends State<ProfilePage>
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
-      body: SafeArea(
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
+      body: _isLoadingProfile 
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               SliverToBoxAdapter(
                 child: Column(
@@ -745,7 +950,11 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   Widget _buildStoriesTab(TextTheme textTheme) {
-    final filteredStories = _stories;
+    // Filter stories based on selected filter
+    final filteredStories = _stories.where((story) {
+      final visibility = story['visibility'] ?? 'Public';
+      return visibility == _selectedFilter;
+    }).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
       children: [
@@ -868,25 +1077,30 @@ class _ProfilePageState extends State<ProfilePage>
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BlogPage(
-                  blog: {
-                    'title': item['title'],
-                    'documentJson': item['documentJson'],
-                    'snippet': item['snippet'] ?? '',
-                    'date': item['date'] ?? 'Baru saja',
-                    'authorName': item['authorName'] ?? _userName,
-                    'authorInitials': item['authorInitials'] ?? '',
-                    'thumbnail': item['thumbnail'],
-                    'likes': item['likes'] ?? '0',
-                    'comments': item['comments'] ?? '0',
-                    'tags': item['tags'] ?? [],
-                  },
+            // Check if post is draft - redirect to editor instead of BlogPage
+            final isDraft = item['visibility'] == 'Draft';
+            
+            if (isDraft) {
+              // Navigate to edit page for draft posts
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditLembarPage(
+                    postId: int.tryParse(item['id'].toString()) ?? 0,
+                  ),
                 ),
-              ),
-            );
+              ).then((_) => _refreshData()); // Refresh after editing
+            } else {
+              // Navigate to BlogPage for published posts
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BlogPage(
+                    postId: int.tryParse(item['id'].toString()) ?? 0,
+                  ),
+                ),
+              );
+            }
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -924,16 +1138,51 @@ class _ProfilePageState extends State<ProfilePage>
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        item['title'] ?? 'Tanpa Judul',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: _kTextColor,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      // Title with Visibility Badge
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item['title']?.toString() ?? 'Tanpa Judul',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: _kTextColor,
+                                fontSize: 16,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (item['visibility'] != null && !isLikedTab) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: item['visibility'] == 'Draft' 
+                                    ? Colors.orange.withOpacity(0.1)
+                                    : _kPurpleColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: item['visibility'] == 'Draft' 
+                                      ? Colors.orange
+                                      : _kPurpleColor,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                item['visibility'],
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: item['visibility'] == 'Draft' 
+                                      ? Colors.orange
+                                      : _kPurpleColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(

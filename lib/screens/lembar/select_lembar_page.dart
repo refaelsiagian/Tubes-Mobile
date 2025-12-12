@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../data/services/lembar_storage.dart';
+import '../../data/services/post_service.dart';
+import '../../data/services/auth_service.dart';
 
 // Konstanta Warna (Konsisten)
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -38,17 +39,28 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
 
   // === LOGIC (TIDAK DIUBAH) ===
   Future<void> _loadLembar() async {
-    final stories = await LembarStorage.getAllLembar();
+    final authService = AuthService();
+    final profile = await authService.getProfile();
+    int? userId;
+    if (profile['success']) {
+      userId = profile['data']['id'];
+    }
 
-    _allLembar = stories
+    if (userId == null) {
+      // Handle error or return empty
+      return;
+    }
+
+    final postService = PostService();
+    final posts = await postService.getPosts(userId: userId);
+
+    _allLembar = posts
         .map(
-          (story) => {
-            'id':
-                story['id']?.toString() ??
-                DateTime.now().millisecondsSinceEpoch.toString(),
-            'title': story['title'] ?? 'Untitled',
-            'snippet': story['snippet'] ?? '',
-            'date': story['date'] ?? 'Just now',
+          (post) => {
+            'id': post['id'].toString(),
+            'title': post['title'] ?? 'Untitled',
+            'snippet': post['snippet'] ?? '',
+            'date': post['published_at'] ?? 'Just now',
           },
         )
         .toList();
