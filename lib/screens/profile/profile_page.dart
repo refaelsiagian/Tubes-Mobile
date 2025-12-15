@@ -32,6 +32,8 @@ class _ProfilePageState extends State<ProfilePage>
   late TabController _tabController;
   String _selectedFilter = 'Public';
   static const int _currentNavIndex = 3;
+  
+  Map<String, dynamic>? _userData;
 
   // Dynamic user data
   String _userName = '';
@@ -88,6 +90,7 @@ class _ProfilePageState extends State<ProfilePage>
       final data = result['data'];
       if (mounted) {
         setState(() {
+          _userData = data;
           _userName = data['name'] ?? '';
           if (_userName.isNotEmpty) {
             _userInitials = _userName.trim().split(' ').map((l) => l[0]).take(2).join().toUpperCase();
@@ -98,8 +101,8 @@ class _ProfilePageState extends State<ProfilePage>
           _bannerImagePath = data['banner_url'];
           
           if (data['stats'] != null) {
-            _followers = data['stats']['followers'] ?? 0;
-            _following = data['stats']['following'] ?? 0;
+            _followers = data['stats']['followers_count'] ?? data['stats']['followers'] ?? 0;
+            _following = data['stats']['following_count'] ?? data['stats']['following'] ?? 0;
           }
           
           _userId = data['id']; // Set User ID
@@ -835,7 +838,7 @@ class _ProfilePageState extends State<ProfilePage>
                       ),
                       children: [
                         TextSpan(
-                          text: '$_followers',
+                          text: _followers.toString(),
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const TextSpan(text: ' Pengikut'),
@@ -847,7 +850,7 @@ class _ProfilePageState extends State<ProfilePage>
                           ),
                         ),
                         TextSpan(
-                          text: '$_following',
+                          text: _following.toString(),
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const TextSpan(text: ' Mengikuti'),
