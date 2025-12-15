@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http_parser/http_parser.dart';
+import 'dart:io';
 
 class AuthService {
   // Ganti IP ini sesuai dengan IP laptop kamu
@@ -258,6 +260,66 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     // Pastikan key-nya 'auth_token' (sesuai dengan yang kamu pakai di fungsi login)
     return prefs.getString('auth_token');
+  }
+
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? username,
+    String? bio,
+    File? avatar,
+    File? banner,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
+      // Gunakan MultipartRequest karena kita kirim FILE
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/me'));
+      
+      // Header Auth
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      // Masukkan Data Teks (Hanya kalau diedit)
+      if (name != null) request.fields['name'] = name;
+      if (username != null) request.fields['username'] = username;
+      if (bio != null) request.fields['bio'] = bio;
+
+      // Masukkan File Avatar (Jika ada user pilih foto baru)
+      if (avatar != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'avatar', // Harus sesuai nama di Controller Laravel ($request->file('avatar'))
+          avatar.path,
+        ));
+      }
+
+      // Masukkan File Banner (Jika ada user pilih foto baru)
+      if (banner != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'banner', // Harus sesuai nama di Controller Laravel
+          banner.path,
+        ));
+      }
+
+      // Kirim Request
+      print("📤 Mengirim data update profil...");
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print("📥 Response status: ${response.statusCode}");
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Gagal update profil'};
+      }
+    } catch (e) {
+      print("❌ Error update profile: $e");
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
   }
 } // <--- Ini kurung tutup class AuthService
 

@@ -620,6 +620,8 @@ class _ProfilePageState extends State<ProfilePage>
           initialUsername: _currentUsername,
           initialBio: _userBio,
           initialEmail: _userEmail,
+          initialAvatarUrl: _profileImagePath,
+          initialBannerUrl: _bannerImagePath,
         ),
       ),
     );
