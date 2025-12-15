@@ -252,4 +252,12 @@ class AuthService {
       return [];
     }
   }
-}
+
+  // --- TAMBAHKAN FUNGSI INI ---
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Pastikan key-nya 'auth_token' (sesuai dengan yang kamu pakai di fungsi login)
+    return prefs.getString('auth_token');
+  }
+} // <--- Ini kurung tutup class AuthService
+
