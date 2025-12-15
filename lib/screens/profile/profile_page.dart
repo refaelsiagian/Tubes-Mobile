@@ -79,6 +79,7 @@ class _ProfilePageState extends State<ProfilePage>
     _loadProfile();
     // _loadStories(); // Moved to _loadProfile
     _loadJilid();
+    _loadLikedPosts();
   }
 
   Future<void> _loadProfile() async {
@@ -970,241 +971,302 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildLikesTab(TextTheme textTheme) {
-    if (_likedBlogs.isEmpty) {
-      return const Center(
-        child: Text(
-          'Belum ada yang disukai',
-          style: TextStyle(color: _kSubTextColor),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
-      itemCount: _likedBlogs.length,
-      itemBuilder: (context, index) {
-        final blog = _likedBlogs[index];
-        return _buildModernContentCard(
-          blog,
-          textTheme,
-          onMenuTap: () => _showLikedOptionMenu(context, blog),
-          isLikedTab: true,
-        );
-      },
+Widget _buildLikesTab(TextTheme textTheme) {
+  if (_likedBlogs.isEmpty) {
+    return const Center(
+      child: Text('Belum ada yang disukai', style: TextStyle(color: Colors.grey)),
     );
   }
+  
+  return ListView.builder(
+    padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
+    itemCount: _likedBlogs.length,
+    itemBuilder: (context, index) {
+      final blog = _likedBlogs[index];
+      
+      return _buildModernContentCard(
+        blog,
+        textTheme,
+        onMenuTap: () => _showLikedOptionMenu(context, blog),
+        isLikedTab: true,
 
-  Widget _buildModernContentCard(
-    Map<String, dynamic> item,
-    TextTheme textTheme, {
-    required VoidCallback onMenuTap,
-    bool isLikedTab = false,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        // --- HAPUS BARIS YANG SALAH TADI, GANTI JADI INI: ---
+        
+        // 1. Kirim status (True karena di tab disukai)
+        isLiked: true, 
+        
+        // 2. Kirim jumlah like
+        likeCount: int.tryParse(blog['likes'].toString()) ?? 0,
+
+        // 3. Kirim fungsi apa yang terjadi kalau dipencet
+        onLikeTap: () async {
+           // Pastikan fungsi _toggleLikeAndRemove sudah kamu buat di bawah ya
+           await _toggleLikeAndRemove(blog['id'], index); 
+        },
+      );
+    },
+  );
+}
+
+  // Buat fungsi pembantu biar rapi
+  Future<void> _toggleLikeAndRemove(int postId, int index) async {
+    // 1. Panggil Service
+    final result = await _postService.toggleLike(postId);
+
+    if (result['success'] == true) {
+      // 2. Jika sukses unlike, langsung hapus dari layar
+      if (mounted) {
+        setState(() {
+          _likedBlogs.removeAt(index);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Dihapus dari daftar suka"), 
+            duration: Duration(seconds: 1)
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
+        );
+      }
+    } else {
+       // Error handling
+       print("Gagal unlike: ${result['message']}");
+    }
+  }
+
+Widget _buildModernContentCard(
+  Map<String, dynamic> item,
+  TextTheme textTheme, {
+  required VoidCallback onMenuTap,
+  bool isLikedTab = false,
+  
+  // --- [BARU] Tambahan Parameter ---
+  bool isLiked = false,
+  int likeCount = 0,
+  VoidCallback? onLikeTap,
+  // --------------------------------
+}) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            // Check if post is draft - redirect to editor instead of BlogPage
-            final isDraft = item['visibility'] == 'Draft';
-            
-            if (isDraft) {
-              // Navigate to edit page for draft posts
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditLembarPage(
-                    postId: int.tryParse(item['id'].toString()) ?? 0,
-                  ),
+        onTap: () {
+          // Check if post is draft - redirect to editor instead of BlogPage
+          final isDraft = item['visibility'] == 'Draft';
+          
+          if (isDraft) {
+            // Navigate to edit page for draft posts
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EditLembarPage(
+                  postId: int.tryParse(item['id'].toString()) ?? 0,
                 ),
-              ).then((_) => _refreshData()); // Refresh after editing
-            } else {
-              // Navigate to BlogPage for published posts
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BlogPage(
-                    postId: int.tryParse(item['id'].toString()) ?? 0,
-                  ),
+              ),
+            ).then((_) => _refreshData()); // Refresh after editing
+          } else {
+            // Navigate to BlogPage for published posts
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BlogPage(
+                  postId: int.tryParse(item['id'].toString()) ?? 0,
                 ),
-              );
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          // AVATAR KECIL DI CARD
-                          CircleAvatar(
-                            radius: 10,
-                            backgroundColor: Colors.grey.shade300,
-                            backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
+              ),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // AVATAR KECIL DI CARD
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.grey.shade300,
+                          backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          item['authorName'] ?? 'Pengguna',
+                          style: textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: _kTextColor,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            item['authorName'] ?? 'Pengguna',
-                            style: textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
+                        ),
+                        const Spacer(),
+                        Text(
+                          item['date'] ?? '',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: _kSubTextColor,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Title with Visibility Badge
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item['title']?.toString() ?? 'Tanpa Judul',
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
                               color: _kTextColor,
+                              fontSize: 16,
+                              height: 1.2,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const Spacer(),
-                          Text(
-                            item['date'] ?? '',
-                            style: textTheme.labelSmall?.copyWith(
-                              color: _kSubTextColor,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      // Title with Visibility Badge
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item['title']?.toString() ?? 'Tanpa Judul',
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: _kTextColor,
-                                fontSize: 16,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (item['visibility'] != null && !isLikedTab) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
+                        ),
+                        if (item['visibility'] != null && !isLikedTab) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: item['visibility'] == 'Draft' 
+                                  ? Colors.orange.withOpacity(0.1)
+                                  : _kPurpleColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
                                 color: item['visibility'] == 'Draft' 
-                                    ? Colors.orange.withOpacity(0.1)
-                                    : _kPurpleColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: item['visibility'] == 'Draft' 
-                                      ? Colors.orange
-                                      : _kPurpleColor,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                item['visibility'],
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: item['visibility'] == 'Draft' 
-                                      ? Colors.orange
-                                      : _kPurpleColor,
-                                ),
+                                    ? Colors.orange
+                                    : _kPurpleColor,
+                                width: 1,
                               ),
                             ),
-                          ],
+                            child: Text(
+                              item['visibility'],
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: item['visibility'] == 'Draft' 
+                                    ? Colors.orange
+                                    : _kPurpleColor,
+                              ),
+                            ),
+                          ),
                         ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item['snippet'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _kSubTextColor,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        item['snippet'] ?? '',
-                        style: const TextStyle(
-                          fontSize: 13,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        // --- [BARU] Logic Tombol Like ---
+                        InkWell(
+                          onTap: onLikeTap, // Fungsi yang dikirim dari ListView
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0), // Padding biar enak dipencet
+                            child: Row(
+                              children: [
+                                Icon(
+                                  // Gunakan variabel isLiked, bukan isLikedTab lagi
+                                  isLiked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border_rounded,
+                                  size: 16,
+                                  // Warna merah kalau dilike
+                                  color: isLiked ? Colors.red : _kSubTextColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  // Gunakan variabel likeCount agar update realtime
+                                  likeCount.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _kSubTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // --------------------------------
+
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.mode_comment_outlined,
+                          size: 16,
                           color: _kSubTextColor,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(
-                            isLikedTab
-                                ? Icons.favorite
-                                : Icons.favorite_border_rounded,
-                            size: 16,
-                            color: isLikedTab ? Colors.red : _kSubTextColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            item['likes'] ?? '0',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _kSubTextColor,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Icon(
-                            Icons.mode_comment_outlined,
-                            size: 16,
+                        const SizedBox(width: 4),
+                        Text(
+                          item['comments'] ?? '0',
+                          style: const TextStyle(
+                            fontSize: 12,
                             color: _kSubTextColor,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            item['comments'] ?? '0',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: _kSubTextColor,
-                            ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: onMenuTap,
+                          child: const Icon(
+                            Icons.more_horiz,
+                            size: 20,
+                            color: _kSubTextColor,
                           ),
-                          const Spacer(),
-                          GestureDetector(
-                            onTap: onMenuTap,
-                            child: const Icon(
-                              Icons.more_horiz,
-                              size: 20,
-                              color: _kSubTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.grey[100],
-                      // THUMBNAIL (Pakai _getSmartImage)
-                      image: DecorationImage(
-                        image: _getSmartImage(item['thumbnail'], _defaultThumbAsset),
-                        fit: BoxFit.cover,
-                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.grey[100],
+                    // THUMBNAIL (Pakai _getSmartImage)
+                    image: DecorationImage(
+                      image: _getSmartImage(item['thumbnail'], _defaultThumbAsset),
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildJilidTab(TextTheme textTheme) {
     if (_jilid.isEmpty) {

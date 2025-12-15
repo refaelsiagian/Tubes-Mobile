@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // Ganti IP ini sesuai dengan IP laptop kamu
-  static const String baseUrl = 'http://192.168.18.213:8000/api';
+  static const String baseUrl = 'http://10.0.2.2:8000/api';
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
