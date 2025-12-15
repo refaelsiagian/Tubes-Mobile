@@ -111,16 +111,16 @@ class _HomePageState extends State<HomePage> {
           if (difference.inMinutes == 0) {
             return 'Baru saja';
           }
-          return '${difference.inMinutes}m lalu';
+          return '${difference.inMinutes} mnt lalu';
         }
-        return '${difference.inHours}j lalu';
+        return '${difference.inHours} jam lalu';
       } else if (difference.inDays == 1) {
         return 'Kemarin';
       } else if (difference.inDays < 7) {
-        return '${difference.inDays}h lalu';
+        return '${difference.inDays} hari lalu';
       } else if (difference.inDays < 30) {
         final weeks = (difference.inDays / 7).floor();
-        return '${weeks}w lalu';
+        return '${weeks} minggu lalu';
       } else {
         return '${date.day}/${date.month}/${date.year}';
       }
