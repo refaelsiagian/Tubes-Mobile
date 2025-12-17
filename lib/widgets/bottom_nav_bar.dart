@@ -10,14 +10,14 @@ class CustomBottomNavBar extends StatelessWidget {
   const CustomBottomNavBar({
     super.key,
     required this.currentIndex,
-    required this.onTap,
+    required this.onTap,    
+    
   });
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        // Margin agar navbar "melayang" (Floating effect)
         margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
