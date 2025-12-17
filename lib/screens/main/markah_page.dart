@@ -42,7 +42,7 @@ class _MarkahPageState extends State<MarkahPage> {
         .map(
           (post) => {
             'id': post['id'],
-            'authorName': post['author']?['name'] ?? 'Pengguna',
+            'authorName': post['user']?['name'] ?? 'Pengguna',
             'authorInitials': '', 
             'title': post['title'] ?? 'Untitled',
             'snippet': post['snippet'] ?? '',
@@ -80,19 +80,32 @@ class _MarkahPageState extends State<MarkahPage> {
     return FileImage(File(path));
   }
 
-  String _formatDate(String? dateString) {
-    print('📅 _formatDate received: $dateString');
-    if (dateString == null || dateString.isEmpty) {
-      print('📅 dateString is null or empty');
-      return 'Baru saja';
-    }
+String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return 'Baru saja';
     try {
       final date = DateTime.parse(dateString);
-      final formatted = '${date.day}/${date.month}/${date.year}';
-      print('📅 Formatted date: $formatted');
-      return formatted;
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          if (difference.inMinutes == 0) {
+            return 'Baru saja';
+          }
+          return '${difference.inMinutes} mnt lalu';
+        }
+        return '${difference.inHours} jam lalu';
+      } else if (difference.inDays == 1) {
+        return 'Kemarin';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} hari lalu';
+      } else if (difference.inDays < 30) {
+        final weeks = (difference.inDays / 7).floor();
+        return '${weeks} minggu lalu';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
     } catch (e) {
-      print('❌ Error parsing date: $e');
       return 'Baru saja';
     }
   }

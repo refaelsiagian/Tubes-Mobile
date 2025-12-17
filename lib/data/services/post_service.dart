@@ -7,16 +7,20 @@ import 'auth_service.dart';
 class PostService {
   static const String baseUrl = AuthService.baseUrl;
 
-  // Cari fungsi getPosts, dan ubah menjadi seperti ini:
+  // --- HELPER: Ambil Token (Biar kode lebih bersih & tidak berulang) ---
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // --- GET POSTS (Dengan Filter Status) ---
   Future<List<Map<String, dynamic>>> getPosts({
     int? userId,
     String? search,
-    String? status,
+    String? status, // Fitur Penting untuk Draft/Published
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
+      final token = await _getToken();
       String url = '$baseUrl/posts';
       List<String> queryParams = [];
 
@@ -26,7 +30,7 @@ class PostService {
       if (search != null && search.isNotEmpty) {
         queryParams.add('search=$search');
       }
-      // TAMBAHAN BARU: Parameter status
+      // Parameter status (Penting!)
       if (status != null && status.isNotEmpty) {
         queryParams.add('status=$status');
       }
@@ -57,9 +61,7 @@ class PostService {
 
   Future<Map<String, dynamic>> getPost(int id) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
+      final token = await _getToken();
       final response = await http.get(
         Uri.parse('$baseUrl/posts/$id'),
         headers: {
@@ -81,9 +83,7 @@ class PostService {
 
   Future<Map<String, dynamic>> getComments(int postId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
+      final token = await _getToken();
       final response = await http.get(
         Uri.parse('$baseUrl/posts/$postId/comments'),
         headers: {
@@ -105,9 +105,7 @@ class PostService {
 
   Future<Map<String, dynamic>> postComment(int postId, String content) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
+      final token = await _getToken();
       if (token == null) {
         return {'success': false, 'message': 'Silakan login terlebih dahulu'};
       }
@@ -134,15 +132,11 @@ class PostService {
 
   Future<Map<String, dynamic>> toggleLike(int postId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
+      final token = await _getToken();
       if (token == null) {
-        print('❌ toggleLike: No token found');
-        return {'success': false, 'message': 'Silakan login terlebih dahulu'};
+        return {'success': false, 'message': 'Silakan login'};
       }
 
-      print('🔄 toggleLike: Sending request to /posts/$postId/like');
       final response = await http.post(
         Uri.parse('$baseUrl/posts/$postId/like'),
         headers: {
@@ -151,9 +145,6 @@ class PostService {
           'Authorization': 'Bearer $token',
         },
       );
-
-      print('📡 toggleLike: Status ${response.statusCode}');
-      print('📡 toggleLike: Body ${response.body}');
 
       if (response.statusCode == 200) {
         return {'success': true, 'data': jsonDecode(response.body)};
@@ -169,17 +160,15 @@ class PostService {
     }
   }
 
-  // --- UPDATED: createPost tanpa parameter visibility ---
+  // --- CREATE POST (Tanpa Visibility, Ada Status) ---
   Future<Map<String, dynamic>> createPost(
     String title,
     String content,
     String status, {
     String? snippet,
-    // String? visibility,  <-- DIHAPUS
     File? thumbnail,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = await _getToken();
     final url = Uri.parse('$baseUrl/posts');
 
     try {
@@ -193,8 +182,6 @@ class PostService {
       request.fields['content'] = content;
       request.fields['status'] = status;
       if (snippet != null) request.fields['snippet'] = snippet;
-
-      // HAPUS request.fields['visibility']
 
       if (thumbnail != null) {
         request.files.add(
@@ -218,18 +205,16 @@ class PostService {
     }
   }
 
-  // --- UPDATED: updatePost params jadi optional & hapus visibility ---
+  // --- UPDATE POST (Tanpa Visibility, Ada Status) ---
   Future<Map<String, dynamic>> updatePost(
     int id,
-    String? title, // Boleh null (tidak diubah)
-    String? content, // Boleh null (tidak diubah)
-    String? status, { // Boleh null (tidak diubah)
+    String? title,
+    String? content,
+    String? status, {
     String? snippet,
-    // String? visibility, <-- DIHAPUS
     File? thumbnail,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = await _getToken();
     final url = Uri.parse('$baseUrl/posts/$id');
 
     try {
@@ -241,12 +226,10 @@ class PostService {
 
       request.fields['_method'] = 'PUT'; // Laravel spoofing
 
-      // Hanya kirim field jika tidak null (Partial Update)
       if (title != null) request.fields['title'] = title;
       if (content != null) request.fields['content'] = content;
       if (status != null) request.fields['status'] = status;
       if (snippet != null) request.fields['snippet'] = snippet;
-      // HAPUS request.fields['visibility']
 
       if (thumbnail != null) {
         request.files.add(
@@ -268,15 +251,12 @@ class PostService {
         };
       }
     } catch (e) {
-      print('❌ Update Post Exception: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
 
   Future<bool> deletePost(int id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
+    final token = await _getToken();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/posts/$id'),
@@ -292,11 +272,8 @@ class PostService {
   }
 
   Future<List<Map<String, dynamic>>> getLikedPosts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
+    final token = await _getToken();
     try {
-      print('🔄 getLikedPosts: Fetching liked posts');
       final response = await http.get(
         Uri.parse('$baseUrl/me/likes'),
         headers: {
@@ -305,28 +282,22 @@ class PostService {
           'Authorization': 'Bearer $token',
         },
       );
-      // -----------------------------
-
-      print('📡 getLikedPosts: Status ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        // Karena backend pakai paginate(10), data post ada di dalam key ['data']
-        // Jadi kodingan ini sudah benar:
         final List data = jsonDecode(response.body)['data'];
-
         return List<Map<String, dynamic>>.from(data);
       }
       return [];
     } catch (e) {
-      print('❌ getLikedPosts error: $e');
       return [];
     }
   }
 
-  Future<List<Map<String, dynamic>>> getBookmarks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+  // === FITUR BOOKMARK YANG DIPERBAIKI ===
 
+  // 1. Ambil List Bookmark
+  Future<List<Map<String, dynamic>>> getBookmarks() async {
+    final token = await _getToken();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/bookmarks'),
@@ -338,57 +309,59 @@ class PostService {
       );
 
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body)['data'];
-        return List<Map<String, dynamic>>.from(data);
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['data'] != null) {
+           final List data = jsonResponse['data'];
+           return List<Map<String, dynamic>>.from(data);
+        }
       }
       return [];
     } catch (e) {
+      print('Error getBookmarks: $e');
       return [];
     }
   }
 
-  Future<bool> addBookmark(int postId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
+  // 2. Toggle Bookmark (Fungsi Inti)
+  Future<Map<String, dynamic>> toggleBookmark(int postId) async {
+    final token = await _getToken();
     try {
-      print('🔄 addBookmark: Sending request for post $postId');
+      print('🔄 toggleBookmark: Sending request for post $postId');
+      
       final response = await http.post(
-        Uri.parse('$baseUrl/bookmarks'),
+        Uri.parse('$baseUrl/posts/$postId/bookmark'),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({'post_id': postId}),
       );
-      print('📡 addBookmark: Status ${response.statusCode}');
-      print('📡 addBookmark: Body ${response.body}');
-      return response.statusCode == 200 || response.statusCode == 201;
+
+      print('📡 toggleBookmark: Status ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': body['message'],
+          'is_bookmarked': body['is_bookmarked']
+        };
+      }
+      return {'success': false, 'message': 'Gagal mengubah markah'};
     } catch (e) {
-      print('❌ addBookmark error: $e');
-      return false;
+      print('❌ toggleBookmark error: $e');
+      return {'success': false, 'message': 'Error koneksi'};
     }
   }
 
-  Future<bool> removeBookmark(int postId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+  // 3. Wrapper (Agar tidak merusak kode UI yang lama)
+  Future<bool> addBookmark(int postId) async {
+    final result = await toggleBookmark(postId);
+    return result['success'] == true;
+  }
 
-    try {
-      print('🔄 removeBookmark: Sending request for post $postId');
-      final response = await http.delete(
-        Uri.parse('$baseUrl/bookmarks/$postId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      print('📡 removeBookmark: Status ${response.statusCode}');
-      print('📡 removeBookmark: Body ${response.body}');
-      return response.statusCode == 200;
-    } catch (e) {
-      print('❌ removeBookmark error: $e');
-      return false;
-    }
+  Future<bool> removeBookmark(int postId) async {
+    final result = await toggleBookmark(postId);
+    return result['success'] == true;
   }
 }

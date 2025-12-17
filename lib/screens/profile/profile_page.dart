@@ -187,7 +187,8 @@ class _ProfilePageState extends State<ProfilePage>
     // 1. Optimistic Update (Ubah UI duluan biar cepat)
     setState(() {
       story['is_liked'] = !isLiked;
-      story['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1).toString();
+      story['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1)
+          .toString();
     });
 
     // 2. Panggil Server
@@ -200,7 +201,9 @@ class _ProfilePageState extends State<ProfilePage>
         story['likes'] = currentLikes.toString();
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menyukai')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menyukai')));
       }
     }
   }
@@ -983,7 +986,7 @@ class _ProfilePageState extends State<ProfilePage>
                   isLiked: story['is_liked'] ?? false,
                   likeCount: int.tryParse(story['likes'].toString()) ?? 0,
                   onLikeTap: () {
-                     _toggleLikeInStories(story);
+                    _toggleLikeInStories(story);
                   },
                   // ---------------------------------
                 ),
@@ -1138,6 +1141,14 @@ class _ProfilePageState extends State<ProfilePage>
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item['snippet']?.toString() ?? '',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: _kSubTextColor,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       // Title with Visibility Badge
