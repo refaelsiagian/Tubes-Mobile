@@ -283,6 +283,32 @@ class PostService {
     }
   }
 
+  Future<Map<String, dynamic>> updatePostStatus(int id, String status) async {
+    final token = await _getToken();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/posts/$id/status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'status': status}),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)['data']};
+      }
+      final data = jsonDecode(response.body);
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal memperbarui status'
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
   Future<bool> deletePost(int id) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');

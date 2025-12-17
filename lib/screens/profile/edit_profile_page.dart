@@ -32,6 +32,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late TextEditingController _nameController;
   late TextEditingController _usernameController;
   late TextEditingController _bioController;
+  Timer? _usernameDebounce;
+  bool? _usernameAvailable;
+  String? _usernameMessage;
+  late String _initialUsernamePlain;
 
   // File untuk menampung hasil pick & crop
   File? _pickedBanner;
@@ -51,6 +55,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _nameController.dispose();
     _usernameController.dispose();
     _bioController.dispose();
@@ -217,6 +222,37 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // --- WIDGETS ---
 
+  void _onUsernameChanged(String value) {
+    _usernameDebounce?.cancel();
+    final trimmed = value.trim();
+
+    if (trimmed.isEmpty) {
+      setState(() {
+        _usernameAvailable = null;
+        _usernameMessage = null;
+      });
+      return;
+    }
+
+    if (trimmed == _initialUsernamePlain) {
+      setState(() {
+        _usernameAvailable = true;
+        _usernameMessage = 'Username tetap digunakan';
+      });
+      return;
+    }
+
+    _usernameDebounce = Timer(const Duration(milliseconds: 500), () async {
+      final available = await AuthService().checkUsername(trimmed);
+      if (!mounted) return;
+      setState(() {
+        _usernameAvailable = available;
+        _usernameMessage =
+            available ? 'Username tersedia' : 'Username sudah dipakai';
+      });
+    });
+  }
+
   Widget _buildSectionLabel(String text) {
     return Text(
       text,
@@ -338,6 +374,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     int maxLines = 1,
     String? hint,
     bool readOnly = false,
+    ValueChanged<String>? onChanged,
+    String? helperText,
+    Color? helperColor,
+    Widget? suffixIcon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,6 +395,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           controller: controller,
           maxLines: maxLines,
           readOnly: readOnly,
+          onChanged: onChanged,
           style: TextStyle(
             fontWeight: FontWeight.w500, 
             color: readOnly ? _kSubTextColor : _kTextColor,
@@ -367,6 +408,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               color: _kSubTextColor,
               fontWeight: FontWeight.bold,
             ),
+            suffixIcon: suffixIcon,
+            helperText: helperText,
+            helperStyle: helperColor != null
+                ? TextStyle(color: helperColor, fontSize: 12)
+                : null,
             filled: true,
             fillColor: readOnly ? Colors.grey[100] : _kBackgroundColor,
             contentPadding: const EdgeInsets.symmetric(

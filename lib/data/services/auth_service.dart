@@ -167,6 +167,29 @@ class AuthService {
     await prefs.remove('auth_token');
   }
 
+  Future<Map<String, dynamic>> sendVerificationEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/email/verification-notification'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Email verifikasi dikirim'};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Gagal mengirim email verifikasi'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
   // Change email
   Future<Map<String, dynamic>> changeEmail(String newEmail, String password) async {
     try {
