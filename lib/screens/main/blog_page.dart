@@ -6,6 +6,10 @@ import '../../data/services/post_service.dart';
 import '../../data/services/auth_service.dart';
 import '../lembar/edit_lembar.dart';
 
+// --- IMPORT NAVIGASI PROFILE ---
+import '../profile/profile_page.dart';       // Halaman Profil Saya
+import '../profile/author_profile_page.dart'; // Halaman Profil Orang Lain
+
 // Warna-warna konstanta
 const Color _kTextColor = Color(0xFF1A1A1A);
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -87,6 +91,31 @@ class _BlogPageState extends State<BlogPage> {
       });
     }
   }
+
+  // --- LOGIC NAVIGASI PROFIL ---
+  void _navigateToAuthorProfile() {
+    final authorId = _post?['author']['id'];
+    final currentUserId = _currentUser?['id'];
+
+    if (authorId == null) return;
+
+    // Jika ID Author sama dengan ID User yang login -> Buka ProfilePage (Edit mode)
+    // Jika Beda -> Buka AuthorProfilePage (View Only)
+    if (currentUserId != null && authorId == currentUserId) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ProfilePage()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AuthorProfilePage(userId: authorId),
+        ),
+      );
+    }
+  }
+  // -----------------------------
 
   Future<void> _submitComment() async {
     if (_commentController.text.trim().isEmpty) return;
@@ -450,26 +479,37 @@ class _BlogPageState extends State<BlogPage> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18, 
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), 
+                  // --- CLICKABLE AUTHOR INFO (TOP) ---
+                  GestureDetector(
+                    onTap: _navigateToAuthorProfile, // Panggil Fungsi Navigasi
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min, // Agar klik area tidak melebar
+                      children: [
+                        CircleAvatar(
+                          radius: 18, 
+                          backgroundColor: Colors.grey.shade200,
+                          backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), 
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              getAuthorName(),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                            Text(
+                              _formatDate(_post?['published_at']),
+                              style: const TextStyle(color: _kSubTextColor, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        getAuthorName(),
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                      Text(
-                        _formatDate(_post?['published_at']),
-                        style: const TextStyle(color: _kSubTextColor, fontSize: 11),
-                      ),
-                    ],
-                  ),
+                  
                   const Spacer(),
+                  
                   // Only show Follow button if not viewing own post
                   if (_post?['author']?['id'] != null)
                     FutureBuilder(
@@ -541,38 +581,51 @@ class _BlogPageState extends State<BlogPage> {
             
             const SizedBox(height: 40),
             
-            // --- 4. PROFIL PENULIS BAWAH (Minimalis Border) ---
+            // --- 4. PROFIL PENULIS BAWAH (Minimalis Border + Clickable) ---
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(color: Colors.grey.shade200),
                   bottom: BorderSide(color: Colors.grey.shade200),
                 ),
               ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24, 
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), // Smart Image
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _navigateToAuthorProfile, // Panggil Fungsi Navigasi
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Row(
                       children: [
-
-                        const SizedBox(height: 2),
-                        Text(
-                          getAuthorName(),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        CircleAvatar(
+                          radius: 24, 
+                          backgroundColor: Colors.grey.shade200,
+                          backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), // Smart Image
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 2),
+                              Text(
+                                getAuthorName(),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Lihat profil penulis',
+                                style: TextStyle(color: _kPurpleColor, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _kSubTextColor),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
 
