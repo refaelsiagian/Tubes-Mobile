@@ -1,3 +1,4 @@
+import 'dart:io'; // Tambahkan import dart:io untuk File
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
@@ -6,11 +7,8 @@ import 'review_lembar.dart';
 
 class EditLembarPage extends StatefulWidget {
   final int postId;
-  
-  const EditLembarPage({
-    super.key,
-    required this.postId,
-  });
+
+  const EditLembarPage({super.key, required this.postId});
 
   @override
   State<EditLembarPage> createState() => _EditLembarPageState();
@@ -20,7 +18,7 @@ class _EditLembarPageState extends State<EditLembarPage> {
   late final quill.QuillController _controller;
   late final FocusNode _focusNode;
   final _postService = PostService();
-  
+
   bool _isLoading = true;
   Map<String, dynamic>? _postData;
 
@@ -35,7 +33,7 @@ class _EditLembarPageState extends State<EditLembarPage> {
   Future<void> _loadDraftContent() async {
     try {
       final result = await _postService.getPost(widget.postId);
-      
+
       if (result['success'] && mounted) {
         final post = result['data'];
         setState(() {
@@ -58,7 +56,10 @@ class _EditLembarPageState extends State<EditLembarPage> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Gagal memuat draft'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text('Gagal memuat draft'),
+              backgroundColor: Colors.red,
+            ),
           );
           Navigator.pop(context);
         }
@@ -87,7 +88,9 @@ class _EditLembarPageState extends State<EditLembarPage> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
-        body: const Center(child: CircularProgressIndicator(color: Color(0xFF8D07C6))),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF8D07C6)),
+        ),
       );
     }
 
@@ -145,7 +148,7 @@ class _EditLembarPageState extends State<EditLembarPage> {
               ),
             ),
             const Divider(height: 1, color: Color(0xFFE6E6E6)),
-            
+
             // Editor
             Expanded(
               child: Padding(
@@ -158,6 +161,10 @@ class _EditLembarPageState extends State<EditLembarPage> {
                     placeholder: 'Mulai menulis draft Anda...',
                     autoFocus: false,
                     padding: EdgeInsets.zero,
+                    // --- PERBAIKAN UTAMA DI SINI ---
+                    // Menambahkan embedBuilders agar editor tahu cara render gambar
+                    embedBuilders: [ImageEmbedBuilder()],
+                    // -------------------------------
                   ),
                 ),
               ),
@@ -175,12 +182,31 @@ class _EditLembarPageState extends State<EditLembarPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildToolbarButton(Icons.format_bold, () => _toggleAttribute(quill.Attribute.bold)),
-              _buildToolbarButton(Icons.format_italic, () => _toggleAttribute(quill.Attribute.italic)),
-              _buildToolbarButton(Icons.format_underline, () => _toggleAttribute(quill.Attribute.underline)),
-              _buildToolbarButton(Icons.format_quote, () => _toggleAttribute(quill.Attribute.blockQuote)),
-              _buildToolbarButton(Icons.format_list_bulleted, () => _toggleAttribute(quill.Attribute.ul)),
-              _buildToolbarButton(Icons.format_list_numbered, () => _toggleAttribute(quill.Attribute.ol)),
+              _buildToolbarButton(
+                Icons.format_bold,
+                () => _toggleAttribute(quill.Attribute.bold),
+              ),
+              _buildToolbarButton(
+                Icons.format_italic,
+                () => _toggleAttribute(quill.Attribute.italic),
+              ),
+              _buildToolbarButton(
+                Icons.format_underline,
+                () => _toggleAttribute(quill.Attribute.underline),
+              ),
+              _buildToolbarButton(
+                Icons.format_quote,
+                () => _toggleAttribute(quill.Attribute.blockQuote),
+              ),
+              _buildToolbarButton(
+                Icons.format_list_bulleted,
+                () => _toggleAttribute(quill.Attribute.ul),
+              ),
+              _buildToolbarButton(
+                Icons.format_list_numbered,
+                () => _toggleAttribute(quill.Attribute.ol),
+              ),
+              // Opsional: Tambahkan tombol add image jika ingin bisa nambah gambar di sini
             ],
           ),
         ),
@@ -201,23 +227,23 @@ class _EditLembarPageState extends State<EditLembarPage> {
   void _onSavePressed() {
     final docJson = _controller.document.toDelta().toJson();
     final document = _controller.document;
-    
+
     String title = _postData?['title'] ?? 'Tanpa Judul';
     String content = 'Tidak ada konten tambahan.';
 
     if (document.length > 0) {
       final plainText = document.toPlainText();
       final lines = plainText.split('\n');
-      
+
       String? foundTitle;
       int titleIndex = -1;
 
       for (int i = 0; i < lines.length; i++) {
         final line = lines[i].trim();
-        if (line.isNotEmpty && line.codeUnitAt(0) != 65532) { 
+        if (line.isNotEmpty && line.codeUnitAt(0) != 65532) {
           foundTitle = line;
           titleIndex = i;
-          break; 
+          break;
         }
       }
 
@@ -231,7 +257,7 @@ class _EditLembarPageState extends State<EditLembarPage> {
           content = rawContent;
         }
       } else if (titleIndex == -1 && plainText.trim().isNotEmpty) {
-         content = "Konten Gambar";
+        content = "Konten Gambar";
       }
     }
 
@@ -243,6 +269,7 @@ class _EditLembarPageState extends State<EditLembarPage> {
           documentJson: docJson,
           isEditingDraft: true,
           draftId: widget.postId,
+          initialThumbnailUrl: _postData?['thumbnail_url'],
         ),
       ),
     );
@@ -259,5 +286,44 @@ class _EditLembarPageState extends State<EditLembarPage> {
     } else {
       _controller.formatSelection(attribute);
     }
+  }
+}
+
+// --- KELAS PEMBANTU UNTUK MERENDER GAMBAR (WAJIB ADA) ---
+class ImageEmbedBuilder extends quill.EmbedBuilder {
+  @override
+  String get key => 'image';
+
+  @override
+  Widget build(BuildContext context, quill.EmbedContext embedContext) {
+    final imageUrl = embedContext.node.value.data;
+    if (imageUrl is String && imageUrl.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Image.file(
+          File(imageUrl),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 200,
+              width: double.infinity,
+              color: Colors.grey[200],
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                  SizedBox(height: 8),
+                  Text(
+                    "Gambar tidak ditemukan",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+    return const SizedBox();
   }
 }

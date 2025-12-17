@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'dart:convert';
 import '../../data/services/post_service.dart';
+import '../main/blog_page.dart';
 
 // Konstanta Warna Modern
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -19,6 +20,8 @@ class ReviewLembarPage extends StatefulWidget {
   final dynamic documentJson;
   final bool isEditingDraft;
   final int? draftId;
+  // [TAMBAHAN BARU] Variable untuk menampung link dari database
+  final String? initialThumbnailUrl;
 
   const ReviewLembarPage({
     super.key,
@@ -27,6 +30,7 @@ class ReviewLembarPage extends StatefulWidget {
     this.documentJson,
     this.isEditingDraft = false,
     this.draftId,
+    this.initialThumbnailUrl,
   });
 
   @override
@@ -34,9 +38,6 @@ class ReviewLembarPage extends StatefulWidget {
 }
 
 class _ReviewLembarPageState extends State<ReviewLembarPage> {
-  // HAPUS variabel visibility
-  // String _selectedVisibility = 'Publik'; 
-  
   late TextEditingController _titleController;
   late TextEditingController _snippetController;
 
@@ -88,10 +89,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
           initAspectRatio: CropAspectRatioPreset.square,
           lockAspectRatio: true,
         ),
-        IOSUiSettings(
-          title: 'Atur Thumbnail',
-          aspectRatioLockEnabled: true,
-        ),
+        IOSUiSettings(title: 'Atur Thumbnail', aspectRatioLockEnabled: true),
       ],
     );
 
@@ -102,9 +100,28 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     }
   }
 
+  // [LOGIKA BARU] Menentukan gambar mana yang ditampilkan
+  ImageProvider? _getDisplayImage() {
+    // 1. Jika user baru pilih gambar dari galeri, pakai itu (Prioritas Utama)
+    if (_coverImage != null) {
+      return FileImage(_coverImage!);
+    }
+    // 2. Jika tidak, cek apakah ada link dari database (Draft lama)
+    if (widget.initialThumbnailUrl != null &&
+        widget.initialThumbnailUrl!.isNotEmpty) {
+      return NetworkImage(widget.initialThumbnailUrl!);
+    }
+    // 3. Jika tidak ada keduanya, kosong
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).textTheme;
+
+    // --- TAMBAHKAN BARIS INI ---
+    final displayImage = _getDisplayImage(); 
+    // ---------------------------
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -114,7 +131,10 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
         centerTitle: true,
         title: Text(
           'Pratinjau Lembar',
-          style: theme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: _kTextColor),
+          style: theme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: _kTextColor,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded, color: _kTextColor),
@@ -127,10 +147,8 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, 
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  
-                  // 1. INSTRUKSI 
                   Center(
                     child: Text(
                       'Atur tampilan tulisanmu di Lembar.',
@@ -138,23 +156,21 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                       style: theme.bodyMedium?.copyWith(color: _kSubTextColor),
                     ),
                   ),
-                  
                   const SizedBox(height: 24),
-
-                  // 2. THUMBNAIL
+                  // === BAGIAN THUMBNAIL DIPERBARUI ===
                   Center(
                     child: GestureDetector(
                       onTap: _pickCoverImage,
                       child: Container(
-                        width: 110, 
-                        height: 110, 
+                        width: 110,
+                        height: 110,
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(16), 
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.grey.shade200),
-                          image: _coverImage != null
+                          image: displayImage != null
                               ? DecorationImage(
-                                  image: FileImage(_coverImage!),
+                                  image: displayImage, // Gunakan displayImage
                                   fit: BoxFit.cover,
                                 )
                               : null,
@@ -163,22 +179,25 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                               color: Colors.black.withOpacity(0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
-                            )
+                            ),
                           ],
                         ),
-                        child: _coverImage == null
+                        child: displayImage == null
                             ? Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.add_a_photo_outlined,
-                                      size: 28, color: Colors.grey.shade400),
+                                  Icon(
+                                    Icons.add_a_photo_outlined,
+                                    size: 28,
+                                    color: Colors.grey.shade400,
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Cover',
                                     style: TextStyle(
                                       color: Colors.grey.shade400,
                                       fontSize: 11,
-                                      fontWeight: FontWeight.w500
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
@@ -192,20 +211,20 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                                     color: Colors.white,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.edit,
-                                      color: _kPurpleColor, size: 14),
+                                  child: const Icon(
+                                    Icons.edit,
+                                    color: _kPurpleColor,
+                                    size: 14,
+                                  ),
                                 ),
                               ),
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 24),
-
-                  // 3. JUDUL 
                   TextField(
                     controller: _titleController,
-                    textAlign: TextAlign.start, 
+                    textAlign: TextAlign.start,
                     style: theme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: _kTextColor,
@@ -221,10 +240,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                     maxLines: null,
                     textCapitalization: TextCapitalization.sentences,
                   ),
-
                   const SizedBox(height: 12),
-
-                  // 4. SNIPPET 
                   TextField(
                     controller: _snippetController,
                     textAlign: TextAlign.start,
@@ -241,12 +257,8 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
                     maxLines: 4,
                     minLines: 1,
                   ),
-
                   const SizedBox(height: 40),
                   const Divider(thickness: 1, color: Color(0xFFF5F5F5)),
-                  
-                  // HAPUS Bagian Visibility (ListTile & Dropdown) di sini
-
                 ],
               ),
             ),
@@ -267,55 +279,70 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
       child: SafeArea(
         child: Row(
           children: [
-             Expanded(
-               child: TextButton(
-                 onPressed: _onDraftPressed,
-                 style: TextButton.styleFrom(
-                   padding: const EdgeInsets.symmetric(vertical: 16),
-                   foregroundColor: _kSubTextColor,
-                 ),
-                 child: const Text('Simpan ke Draft'),
-               ),
-             ),
-             const SizedBox(width: 12),
-             Expanded(
-               flex: 2,
-               child: Container(
+            Expanded(
+              child: TextButton(
+                onPressed: _onDraftPressed,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: _kSubTextColor,
+                ),
+                child: const Text('Simpan ke Draft'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: Container(
                 height: 50,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(25),
-                  gradient: const LinearGradient(colors: [_kGradientStart, _kGradientStart]),
+                  gradient: const LinearGradient(
+                    colors: [_kGradientStart, _kGradientStart],
+                  ),
                   boxShadow: [
-                    BoxShadow(color: _kPurpleColor.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                    BoxShadow(
+                      color: _kPurpleColor.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
                 child: ElevatedButton(
                   onPressed: _onPublishPressed,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent, 
+                    backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
                   ),
                   child: const Text(
-                    'Publikasi', 
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
+                    'Publikasi',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-               ),
-             ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // HAPUS void _showVisibilityBottomSheet() {}
-
   Future<void> _onPublishPressed() async {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Judul tidak boleh kosong')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Judul tidak boleh kosong')));
       return;
     }
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -324,48 +351,70 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     );
 
     final postService = PostService();
-    final contentToSend = jsonEncode(widget.documentJson); 
-    
-    // HAPUS Logic visibility
-    // final visibility = _selectedVisibility == 'Publik' ? 'public' : 'private';
-    
+    final contentToSend = jsonEncode(widget.documentJson);
+
+    // Proses Simpan
     final result = widget.isEditingDraft && widget.draftId != null
         ? await postService.updatePost(
             widget.draftId!,
             _titleController.text.trim(),
             contentToSend,
-            'published', // Status Published
+            'published',
             snippet: _snippetController.text.trim(),
-            // visibility: visibility, <-- HAPUS
             thumbnail: _coverImage,
           )
         : await postService.createPost(
             _titleController.text.trim(),
             contentToSend,
-            'published', // Status Published
+            'published',
             snippet: _snippetController.text.trim(),
-            // visibility: visibility, <-- HAPUS
             thumbnail: _coverImage,
           );
 
-    if (mounted) Navigator.pop(context);
+    // Tutup Loading
+    try {
+      if (navigator.canPop()) navigator.pop();
+    } catch (_) {}
 
-    if (mounted) {
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lembar berhasil dipublikasikan!'), backgroundColor: _kPurpleColor),
+    if (result['success']) {
+      // --- UPDATE LOGIKA NAVIGASI ---
+
+      // 1. Ambil ID Postingan Baru dari Server
+      // (Pastikan backend mengirim balik data post, termasuk ID)
+      final newPostId = result['data']['id'];
+
+      try {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Lembar berhasil dipublikasikan!'),
+            backgroundColor: _kPurpleColor,
+          ),
         );
-        Navigator.of(context).pop(); 
-        Navigator.of(context).pop(); 
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Gagal mempublikasikan'), backgroundColor: Colors.red),
+      } catch (_) {}
+
+      // 2. Buka Halaman BlogPage
+      // pushAndRemoveUntil: Membuka BlogPage dan menghapus history (Review & Editor)
+      // (route) => route.isFirst : Sisakan halaman paling dasar (Home/Profile) di belakang
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => BlogPage(postId: newPostId)),
+        (route) => route.isFirst,
+      );
+    } else {
+      try {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Gagal mempublikasikan'),
+            backgroundColor: Colors.red,
+          ),
         );
-      }
+      } catch (_) {}
     }
   }
 
   Future<void> _onDraftPressed() async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -373,39 +422,58 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     );
 
     final postService = PostService();
-    final contentToSend = jsonEncode(widget.documentJson); 
-    
+    final contentToSend = jsonEncode(widget.documentJson);
+
     final result = widget.isEditingDraft && widget.draftId != null
         ? await postService.updatePost(
             widget.draftId!,
-            _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
+            _titleController.text.trim().isNotEmpty
+                ? _titleController.text.trim()
+                : widget.title ?? 'Untitled',
             contentToSend,
-            'draft', // Status Draft
+            'draft',
             snippet: _snippetController.text.trim(),
-            // visibility: 'public', <-- HAPUS PARAMETER INI
             thumbnail: _coverImage,
           )
         : await postService.createPost(
-            _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
+            _titleController.text.trim().isNotEmpty
+                ? _titleController.text.trim()
+                : widget.title ?? 'Untitled',
             contentToSend,
-            'draft', // Status Draft
+            'draft',
             snippet: _snippetController.text.trim(),
-            // visibility: 'public', <-- HAPUS PARAMETER INI
             thumbnail: _coverImage,
           );
 
-    if (mounted) Navigator.pop(context);
+    // Tutup Loading
+    try {
+      if (navigator.canPop()) navigator.pop();
+    } catch (_) {}
 
-    if (mounted) {
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Disimpan ke Draft')));
-        Navigator.of(context).pop();
-        Navigator.of(context).pop();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Gagal menyimpan draft'), backgroundColor: Colors.red),
+    if (result['success']) {
+      // Ambil ID Postingan
+      final newPostId = result['data']['id'];
+
+      try {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Disimpan ke Draft')),
         );
-      }
+      } catch (_) {}
+
+      // Masuk ke BlogPage (Mode Draft)
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => BlogPage(postId: newPostId)),
+        (route) => route.isFirst,
+      );
+    } else {
+      try {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Gagal menyimpan draft'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } catch (_) {}
     }
   }
 }
