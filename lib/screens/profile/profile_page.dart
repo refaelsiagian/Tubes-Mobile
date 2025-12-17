@@ -169,6 +169,9 @@ class _ProfilePageState extends State<ProfilePage>
             // --- TAMBAHKAN INI ---
             'is_liked': post['is_liked'] ?? false,
             // ---------------------
+            // --- TAMBAHKAN INI ---
+            'is_bookmarked': post['is_bookmarked'] ?? false,
+            // ---------------------
           },
         )
         .toList();
@@ -230,6 +233,9 @@ class _ProfilePageState extends State<ProfilePage>
             'likes': post['stats']['likes']?.toString() ?? '0',
             'comments': post['stats']['comments']?.toString() ?? '0',
             'authorName': post['author']['name'] ?? 'Pengguna',
+            // --- TAMBAHKAN INI ---
+            'is_bookmarked': post['is_bookmarked'] ?? false,
+            // ---------------------
           },
         )
         .toList();
@@ -989,6 +995,59 @@ class _ProfilePageState extends State<ProfilePage>
                     _toggleLikeInStories(story);
                   },
                   // ---------------------------------
+
+                  // --- TAMBAHKAN LOGIKA BOOKMARK ---
+                  isBookmarked: story['is_bookmarked'] ?? false,
+                  // ... di dalam _buildStoriesTab ...
+                  onBookmarkTap: () async {
+                    final isBookmarked = story['is_bookmarked'] == true;
+
+                    // 1. Ubah UI duluan (Optimistic)
+                    setState(() {
+                      story['is_bookmarked'] = !isBookmarked;
+                    });
+
+                    // 2. Panggil Server
+                    bool success;
+                    if (!isBookmarked) {
+                      // Kalau awalnya belum ada -> Tambah
+                      success = await _postService.addBookmark(story['id']);
+                    } else {
+                      // Kalau awalnya ada -> Hapus
+                      success = await _postService.removeBookmark(story['id']);
+                    }
+
+                    // 3. Cek Hasil & Tampilkan Notifikasi (SnackBar)
+                    if (success) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              !isBookmarked
+                                  ? "Disimpan ke Markah"
+                                  : "Dihapus dari Markah",
+                            ),
+                            duration: const Duration(
+                              seconds: 1,
+                            ), // Muncul 1 detik aja biar gak ganggu
+                          ),
+                        );
+                      }
+                    } else {
+                      // Kalau Gagal -> Balikin UI & Info Error
+                      setState(() {
+                        story['is_bookmarked'] = isBookmarked;
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Gagal mengubah markah"),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  // ...
                 ),
               )
               .toList(),
@@ -1031,6 +1090,50 @@ class _ProfilePageState extends State<ProfilePage>
             // Pastikan fungsi _toggleLikeAndRemove sudah kamu buat di bawah ya
             await _toggleLikeAndRemove(blog['id'], index);
           },
+          // --- TAMBAHKAN LOGIKA BOOKMARK ---
+          isBookmarked: blog['is_bookmarked'] ?? false,
+          // ... di dalam _buildLikesTab ...
+          onBookmarkTap: () async {
+            final isBookmarked = blog['is_bookmarked'] == true;
+
+            setState(() {
+              blog['is_bookmarked'] = !isBookmarked;
+            });
+
+            bool success;
+            if (!isBookmarked) {
+              success = await _postService.addBookmark(blog['id']);
+            } else {
+              success = await _postService.removeBookmark(blog['id']);
+            }
+
+            if (success) {
+              // --- INI BAGIAN NOTIFIKASINYA ---
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      !isBookmarked
+                          ? "Disimpan ke Markah"
+                          : "Dihapus dari Markah",
+                    ),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              }
+              // --------------------------------
+            } else {
+              setState(() {
+                blog['is_bookmarked'] = isBookmarked;
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Gagal mengubah markah")),
+                );
+              }
+            }
+          },
+          // ...
         );
       },
     );
@@ -1072,6 +1175,12 @@ class _ProfilePageState extends State<ProfilePage>
     int likeCount = 0,
     VoidCallback? onLikeTap,
     // --------------------------------
+
+    // --- TAMBAHKAN PARAMETER INI ---
+    bool isBookmarked = false,
+    VoidCallback? onBookmarkTap,
+
+    // -------------------------------
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1143,14 +1252,6 @@ class _ProfilePageState extends State<ProfilePage>
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        item['snippet']?.toString() ?? '',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: _kSubTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
                       // Title with Visibility Badge
                       Row(
                         children: [
@@ -1265,6 +1366,22 @@ class _ProfilePageState extends State<ProfilePage>
                             ),
                           ),
                           const Spacer(),
+
+                          // --- TAMBAHKAN TOMBOL BOOKMARK DI SINI ---
+                          GestureDetector(
+                            onTap: onBookmarkTap,
+                            child: Icon(
+                              isBookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border_rounded,
+                              size: 20,
+                              color: isBookmarked
+                                  ? _kPurpleColor
+                                  : _kSubTextColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // -----------------------------------------
                           GestureDetector(
                             onTap: onMenuTap,
                             child: const Icon(

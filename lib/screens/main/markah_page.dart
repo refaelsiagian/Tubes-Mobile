@@ -42,15 +42,17 @@ class _MarkahPageState extends State<MarkahPage> {
         .map(
           (post) => {
             'id': post['id'],
-            'authorName': post['user']?['name'] ?? 'Pengguna',
-            'authorInitials': '', 
+            // --- UBAH DARI ['user'] KE ['author'] ---
+            'authorName': post['author']?['name'] ?? 'Pengguna',
+            // ----------------------------------------
+            'authorInitials': '',
             'title': post['title'] ?? 'Untitled',
             'snippet': post['snippet'] ?? '',
             'thumbnail': post['thumbnail_url'],
             'date': _formatDate(post['published_at']),
             'likes': post['stats']?['likes']?.toString() ?? '0',
             'comments': post['stats']?['comments']?.toString() ?? '0',
-            'documentJson': null, // Not needed for display
+            'documentJson': null,
             'content': post['content'],
             'tags': [],
             'is_liked': post['is_liked'] ?? false,
@@ -80,7 +82,7 @@ class _MarkahPageState extends State<MarkahPage> {
     return FileImage(File(path));
   }
 
-String _formatDate(String? dateString) {
+  String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return 'Baru saja';
     try {
       final date = DateTime.parse(dateString);
@@ -157,8 +159,10 @@ String _formatDate(String? dateString) {
                   onTap: () async {
                     Navigator.pop(context);
                     final postService = PostService();
-                    final success = await postService.removeBookmark(blog['id']);
-                    
+                    final success = await postService.removeBookmark(
+                      blog['id'],
+                    );
+
                     if (success) {
                       setState(() {
                         _bookmarkedBlogsList.remove(blog);
@@ -341,7 +345,10 @@ String _formatDate(String? dateString) {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => BlogPage(postId: int.tryParse(blog['id'].toString()) ?? 0)),
+              MaterialPageRoute(
+                builder: (context) =>
+                    BlogPage(postId: int.tryParse(blog['id'].toString()) ?? 0),
+              ),
             );
           },
           child: Padding(
@@ -355,11 +362,13 @@ String _formatDate(String? dateString) {
                     children: [
                       Row(
                         children: [
-
                           CircleAvatar(
                             radius: 10,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
+                            backgroundImage: _getSmartImage(
+                              null,
+                              _defaultAvatarAsset,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -402,38 +411,53 @@ String _formatDate(String? dateString) {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       Row(
                         children: [
                           // Like Button (Dynamic & Functional)
                           GestureDetector(
                             onTap: () async {
                               final isLiked = blog['is_liked'] ?? false;
-                              
+
                               // Optimistic update
                               setState(() {
                                 blog['is_liked'] = !isLiked;
-                                final currentLikes = int.tryParse(blog['likes'].toString()) ?? 0;
-                                blog['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1).toString();
+                                final currentLikes =
+                                    int.tryParse(blog['likes'].toString()) ?? 0;
+                                blog['likes'] =
+                                    (isLiked
+                                            ? currentLikes - 1
+                                            : currentLikes + 1)
+                                        .toString();
                               });
-                              
+
                               // Call API
-                              final result = await _postService.toggleLike(blog['id']);
-                              
+                              final result = await _postService.toggleLike(
+                                blog['id'],
+                              );
+
                               if (!result['success']) {
                                 // Revert on failure
                                 setState(() {
                                   blog['is_liked'] = isLiked;
-                                  final currentLikes = int.tryParse(blog['likes'].toString()) ?? 0;
-                                  blog['likes'] = (isLiked ? currentLikes + 1 : currentLikes - 1).toString();
+                                  final currentLikes =
+                                      int.tryParse(blog['likes'].toString()) ??
+                                      0;
+                                  blog['likes'] =
+                                      (isLiked
+                                              ? currentLikes + 1
+                                              : currentLikes - 1)
+                                          .toString();
                                 });
                               } else {
                                 // Update with actual count from server
-                                if (result['data'] != null && result['data']['new_count'] != null) {
+                                if (result['data'] != null &&
+                                    result['data']['new_count'] != null) {
                                   setState(() {
-                                    blog['likes'] = result['data']['new_count'].toString();
+                                    blog['likes'] = result['data']['new_count']
+                                        .toString();
                                   });
                                 }
                               }
@@ -441,12 +465,12 @@ String _formatDate(String? dateString) {
                             child: Row(
                               children: [
                                 Icon(
-                                  (blog['is_liked'] ?? false) 
-                                      ? Icons.favorite 
+                                  (blog['is_liked'] ?? false)
+                                      ? Icons.favorite
                                       : Icons.favorite_border_rounded,
                                   size: 16,
-                                  color: (blog['is_liked'] ?? false) 
-                                      ? Colors.red 
+                                  color: (blog['is_liked'] ?? false)
+                                      ? Colors.red
                                       : _kSubTextColor,
                                 ),
                                 const SizedBox(width: 4),
@@ -474,12 +498,14 @@ String _formatDate(String? dateString) {
                             ),
                           ),
                           const Spacer(),
-                          
+
                           GestureDetector(
                             onTap: () async {
                               final postService = PostService();
-                              final success = await postService.removeBookmark(blog['id']);
-                              
+                              final success = await postService.removeBookmark(
+                                blog['id'],
+                              );
+
                               if (success) {
                                 setState(() {
                                   _bookmarkedBlogsList.remove(blog);
@@ -495,12 +521,12 @@ String _formatDate(String? dateString) {
                               }
                             },
                             child: const Icon(
-                              Icons.bookmark_rounded, 
+                              Icons.bookmark_rounded,
                               size: 20,
-                              color: _kPurpleColor, 
+                              color: _kPurpleColor,
                             ),
                           ),
-                          
+
                           const SizedBox(width: 12),
                           GestureDetector(
                             onTap: () => _showMarkahMenu(context, blog),
@@ -524,7 +550,10 @@ String _formatDate(String? dateString) {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[100],
                       image: DecorationImage(
-                        image: _getSmartImage(blog['thumbnail'], _defaultThumbAsset),
+                        image: _getSmartImage(
+                          blog['thumbnail'],
+                          _defaultThumbAsset,
+                        ),
                         fit: BoxFit.cover,
                         onError: (_, __) {},
                       ),
