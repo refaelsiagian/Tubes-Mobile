@@ -5,6 +5,7 @@ import '../../core/utils/navigation_helper.dart';
 import 'blog_page.dart';
 import '../../data/services/post_service.dart';
 import '../../data/services/auth_service.dart';
+import '../../data/services/search_service.dart';
 
 // Konstanta Warna
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -28,6 +29,7 @@ class _SearchPageState extends State<SearchPage>
 
   final _postService = PostService();
   final _authService = AuthService();
+  final _searchService = SearchService();
 
   List<Map<String, dynamic>> _lembarResults = [];
   List<Map<String, dynamic>> _orangResults = [];
@@ -74,8 +76,8 @@ class _SearchPageState extends State<SearchPage>
 
     try {
       final results = await Future.wait([
-        _postService.getPosts(search: query),
-        _authService.searchUsers(query),
+        _searchService.searchPosts(query), // Tab Lembar
+        _searchService.searchUsers(query), // Tab Orang
       ]);
 
       if (mounted) {
@@ -514,33 +516,81 @@ class _SearchPageState extends State<SearchPage>
     );
   }
 
-  Widget _buildOrangResult() {
+Widget _buildOrangResult() {
     if (_orangResults.isEmpty) {
-      return const Center(child: Text('Tidak ada pengguna ditemukan', style: TextStyle(color: _kSubTextColor)));
+      return const Center(
+          child: Text('Tidak ada pengguna ditemukan',
+              style: TextStyle(color: _kSubTextColor)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _orangResults.length,
       itemBuilder: (context, index) {
         final user = _orangResults[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.grey.shade200,
-            backgroundImage: _getSmartImage(user['avatar_url'], _defaultAvatarAsset),
+        
+        // Ambil data stats (Followers) dari backend
+        // Ingat backend kirim: stats: { followers: 10, ... }
+        final stats = user['stats'] ?? {};
+        // Gunakan logika aman seperti di Profile Page
+        final followersCount = stats['followers'] ?? stats['followers_count'] ?? 0;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12), // Kasih jarak antar item
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          title: Text(user['name'] ?? 'Pengguna', style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('@${user['username'] ?? ''}'),
-          trailing: OutlinedButton(
-            onPressed: () {
-              // TODO: Implement Follow/Unfollow or View Profile
-            },
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              side: const BorderSide(color: _kPurpleColor),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.grey.shade200,
+              backgroundImage:
+                  _getSmartImage(user['avatar_url'], _defaultAvatarAsset),
             ),
-            child: const Text('Lihat',
-                style: TextStyle(color: _kPurpleColor, fontSize: 12)),
+            title: Text(
+              user['name'] ?? 'Pengguna',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '@${user['username'] ?? ''}',
+                  style: const TextStyle(color: _kSubTextColor, fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                // Tampilkan Stats Follower!
+                Text(
+                  '$followersCount Pengikut', 
+                  style: const TextStyle(
+                    color: _kPurpleColor, 
+                    fontWeight: FontWeight.w600, 
+                    fontSize: 12
+                  ),
+                ),
+              ],
+            ),
+            trailing: OutlinedButton(
+              onPressed: () {
+                // TODO: Navigasi ke Profil Orang Lain
+              },
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                side: const BorderSide(color: _kPurpleColor),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              child: const Text('Lihat',
+                  style: TextStyle(color: _kPurpleColor, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
           ),
         );
       },
