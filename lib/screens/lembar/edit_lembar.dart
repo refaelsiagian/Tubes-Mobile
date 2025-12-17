@@ -122,7 +122,7 @@ class _EditLembarPageState extends State<EditLembarPage> {
                   ),
                   const Spacer(),
                   Text(
-                    'Edit Draft',
+                    'Edit Lembar',
                     style: theme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
