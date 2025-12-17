@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'dart:convert';
 import '../../data/services/post_service.dart';
-import '../../data/services/post_service.dart';
 
 // Konstanta Warna Modern
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -35,7 +34,9 @@ class ReviewLembarPage extends StatefulWidget {
 }
 
 class _ReviewLembarPageState extends State<ReviewLembarPage> {
-  String _selectedVisibility = 'Publik';
+  // HAPUS variabel visibility
+  // String _selectedVisibility = 'Publik'; 
+  
   late TextEditingController _titleController;
   late TextEditingController _snippetController;
 
@@ -126,7 +127,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // Rata Kiri untuk teks
+                crossAxisAlignment: CrossAxisAlignment.start, 
                 children: [
                   
                   // 1. INSTRUKSI 
@@ -243,50 +244,9 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
 
                   const SizedBox(height: 40),
                   const Divider(thickness: 1, color: Color(0xFFF5F5F5)),
-                  const SizedBox(height: 10),
+                  
+                  // HAPUS Bagian Visibility (ListTile & Dropdown) di sini
 
-                  // Opsi Visibility 
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    onTap: _showVisibilityBottomSheet,
-                    title: const Text('Siapa yang bisa melihat ini?',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: _kTextColor)),
-                    subtitle: Text(
-                      _selectedVisibility == 'Publik'
-                          ? 'Semua orang di Lembar'
-                          : 'Hanya kamu (Pribadi)',
-                      style:
-                          const TextStyle(fontSize: 12, color: _kSubTextColor),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _selectedVisibility == 'Publik' 
-                            ? _kPurpleColor.withOpacity(0.1) 
-                            : Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _selectedVisibility,
-                            style: TextStyle(
-                              color: _selectedVisibility == 'Publik' ? _kPurpleColor : Colors.grey[700],
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.keyboard_arrow_down_rounded, size: 16, 
-                              color: _selectedVisibility == 'Publik' ? _kPurpleColor : Colors.grey[700]),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -349,39 +309,7 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     );
   }
 
-  void _showVisibilityBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-              ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: _kPurpleColor.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.public, color: _kPurpleColor)),
-                title: const Text('Publik', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Semua orang bisa melihat tulisan ini'),
-                onTap: () { setState(() => _selectedVisibility = 'Publik'); Navigator.pop(ctx); },
-                trailing: _selectedVisibility == 'Publik' ? const Icon(Icons.check, color: _kPurpleColor) : null,
-              ),
-              const Divider(height: 1, indent: 60),
-              ListTile(
-                leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.lock_outline, color: Colors.grey)),
-                title: const Text('Private', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Hanya kamu yang bisa melihat'),
-                onTap: () { setState(() => _selectedVisibility = 'Private'); Navigator.pop(ctx); },
-                trailing: _selectedVisibility == 'Private' ? const Icon(Icons.check, color: _kPurpleColor) : null,
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // HAPUS void _showVisibilityBottomSheet() {}
 
   Future<void> _onPublishPressed() async {
     if (_titleController.text.trim().isEmpty) {
@@ -389,7 +317,6 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
       return;
     }
 
-    // Tampilkan loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -397,41 +324,37 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     );
 
     final postService = PostService();
-    // Kirim documentJson sebagai string agar format Quill terjaga
     final contentToSend = jsonEncode(widget.documentJson); 
     
-    // Map dropdown value to backend visibility
-    final visibility = _selectedVisibility == 'Publik' ? 'public' : 'private';
+    // HAPUS Logic visibility
+    // final visibility = _selectedVisibility == 'Publik' ? 'public' : 'private';
     
-    // Check if editing draft or creating new
     final result = widget.isEditingDraft && widget.draftId != null
         ? await postService.updatePost(
             widget.draftId!,
             _titleController.text.trim(),
             contentToSend,
-            'published',
+            'published', // Status Published
             snippet: _snippetController.text.trim(),
-            visibility: visibility,
+            // visibility: visibility, <-- HAPUS
             thumbnail: _coverImage,
           )
         : await postService.createPost(
             _titleController.text.trim(),
             contentToSend,
-            'published',
+            'published', // Status Published
             snippet: _snippetController.text.trim(),
-            visibility: visibility,
+            // visibility: visibility, <-- HAPUS
             thumbnail: _coverImage,
           );
 
-    // Tutup loading
     if (mounted) Navigator.pop(context);
 
     if (mounted) {
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Lembar berhasil dipublikasikan!'), backgroundColor: _kPurpleColor),
+          const SnackBar(content: Text('Lembar berhasil dipublikasikan!'), backgroundColor: _kPurpleColor),
         );
-        // Kembali ke Home (pop sampai root atau halaman utama)
         Navigator.of(context).pop(); 
         Navigator.of(context).pop(); 
       } else {
@@ -443,7 +366,6 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
   }
 
   Future<void> _onDraftPressed() async {
-    // Tampilkan loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -451,30 +373,27 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     );
 
     final postService = PostService();
-    // Kirim documentJson sebagai string agar format Quill terjaga
     final contentToSend = jsonEncode(widget.documentJson); 
     
-    // Check if editing draft or creating new
     final result = widget.isEditingDraft && widget.draftId != null
         ? await postService.updatePost(
             widget.draftId!,
             _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
             contentToSend,
-            'draft',
+            'draft', // Status Draft
             snippet: _snippetController.text.trim(),
-            visibility: 'public',
+            // visibility: 'public', <-- HAPUS PARAMETER INI
             thumbnail: _coverImage,
           )
         : await postService.createPost(
             _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : widget.title ?? 'Untitled',
             contentToSend,
-            'draft',
+            'draft', // Status Draft
             snippet: _snippetController.text.trim(),
-            visibility: 'public',
+            // visibility: 'public', <-- HAPUS PARAMETER INI
             thumbnail: _coverImage,
           );
 
-    // Tutup loading
     if (mounted) Navigator.pop(context);
 
     if (mounted) {
@@ -490,4 +409,3 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
     }
   }
 }
-
