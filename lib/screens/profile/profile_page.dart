@@ -166,6 +166,9 @@ class _ProfilePageState extends State<ProfilePage>
             'comments': post['stats']['comments']?.toString() ?? '0',
             'authorName': post['author']['name'] ?? 'Pengguna',
             'status': post['status'] ?? 'published',
+            // --- TAMBAHKAN INI ---
+            'is_liked': post['is_liked'] ?? false,
+            // ---------------------
           },
         )
         .toList();
@@ -174,6 +177,31 @@ class _ProfilePageState extends State<ProfilePage>
       setState(() {
         _stories = stories;
       });
+    }
+  }
+
+  Future<void> _toggleLikeInStories(Map<String, dynamic> story) async {
+    final isLiked = story['is_liked'] == true;
+    final currentLikes = int.tryParse(story['likes'].toString()) ?? 0;
+
+    // 1. Optimistic Update (Ubah UI duluan biar cepat)
+    setState(() {
+      story['is_liked'] = !isLiked;
+      story['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1).toString();
+    });
+
+    // 2. Panggil Server
+    final result = await _postService.toggleLike(story['id']);
+
+    // 3. Kalau Gagal, Balikin (Rollback)
+    if (!result['success']) {
+      setState(() {
+        story['is_liked'] = isLiked; // Balikin ke awal
+        story['likes'] = currentLikes.toString();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menyukai')));
+      }
     }
   }
 
@@ -950,6 +978,14 @@ class _ProfilePageState extends State<ProfilePage>
                   textTheme,
                   onMenuTap: () => _showStoryOptionMenu(context, story),
                   isLikedTab: false,
+
+                  // --- PERBAIKAN: KIRIM DATA LIKE ---
+                  isLiked: story['is_liked'] ?? false,
+                  likeCount: int.tryParse(story['likes'].toString()) ?? 0,
+                  onLikeTap: () {
+                     _toggleLikeInStories(story);
+                  },
+                  // ---------------------------------
                 ),
               )
               .toList(),
