@@ -1178,7 +1178,7 @@ Widget _buildModernContentCard(
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      item['snippet'] ?? '',
+                      item['snippet'] ?. toString()?? '',
                       style: const TextStyle(
                         fontSize: 13,
                         color: _kSubTextColor,
