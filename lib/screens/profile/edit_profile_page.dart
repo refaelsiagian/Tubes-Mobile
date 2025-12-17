@@ -1,7 +1,8 @@
-import 'dart:io'; // Penting untuk File
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart'; // Import Cropper
+import 'package:image_cropper/image_cropper.dart'; 
+import '../../data/services/auth_service.dart';
 
 // Konstanta Warna
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -16,12 +17,19 @@ class EditProfilePage extends StatefulWidget {
   final String initialBio;
   final String initialEmail;
 
+  // Kita butuh URL gambar lama biar kalau user gak ganti foto, 
+  // fotonya gak hilang/kosong
+  final String? initialAvatarUrl;
+  final String? initialBannerUrl;
+
   const EditProfilePage({
     super.key,
     this.initialName = '',
     this.initialUsername = '',
     this.initialBio = '',
     this.initialEmail = '',
+    this.initialAvatarUrl,
+    this.initialBannerUrl,
   });
 
   @override
@@ -29,6 +37,7 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _usernameController;
   late TextEditingController _bioController;
@@ -36,16 +45,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // File untuk menampung hasil pick & crop
   File? _pickedBanner;
   File? _pickedProfile;
+  
+  bool _isLoading = false; // Loading state saat upload
 
-  // UPDATED: Menggunakan banner_default.jpg
-  final String _defaultBanner = 'assets/images/banner_default.jpg';
-  final String? _defaultProfileUrl = null; 
+  // Asset Default
+  final String _defaultBannerAsset = 'assets/images/banner_default.jpg';
+  final String _defaultAvatarAsset = 'assets/images/ava_default.jpg';
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    _usernameController = TextEditingController(text: widget.initialUsername);
+    // Hapus @ kalau ada, biar user edit username murni
+    String cleanUsername = widget.initialUsername.startsWith('@')
+        ? widget.initialUsername.substring(1)
+        : widget.initialUsername;
+    _usernameController = TextEditingController(text: cleanUsername);
     _bioController = TextEditingController(text: widget.initialBio);
   }
 
@@ -57,29 +72,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
-  // === LOGIC: AMBIL FOTO & CROP ===
+  // === LOGIC 1: AMBIL FOTO DARI GALERI ===
   Future<void> _pickImage({required bool isProfile}) async {
     final picker = ImagePicker();
-    // 1. Ambil dari Galeri
     final XFile? pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80, // Kompres sedikit biar ringan
+      imageQuality: 80, // Kompres sedikit biar ringan uploadnya
     );
 
     if (pickedFile == null) return;
 
-    // 2. Proses Cropping
+    // Lanjut ke proses Crop
     await _cropImage(File(pickedFile.path), isProfile);
   }
 
+  // === LOGIC 2: POTONG GAMBAR (CROP) ===
   Future<void> _cropImage(File imageFile, bool isProfile) async {
     CroppedFile? croppedFile = await ImageCropper().cropImage(
       sourcePath: imageFile.path,
-      // Rasio: Profil = Kotak (1:1), Banner = Persegi Panjang (16:9)
+      // PENTING: Rasio Profile 1:1 (Kotak), Banner 16:9 (Persegi Panjang)
       aspectRatio: isProfile
           ? const CropAspectRatio(ratioX: 1, ratioY: 1)
           : const CropAspectRatio(ratioX: 16, ratioY: 9),
-      // Pengaturan Tampilan Cropper (Warna Ungu biar senada)
+      
+      // Setting Tampilan Cropper biar warna Ungu
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: isProfile ? 'Potong Foto Profil' : 'Potong Sampul',
@@ -88,7 +104,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           initAspectRatio: isProfile
               ? CropAspectRatioPreset.square
               : CropAspectRatioPreset.ratio16x9,
-          lockAspectRatio: true, // Kunci rasio biar user ga asal crop
+          lockAspectRatio: true, // Kunci rasio biar user gak asal crop
         ),
         IOSUiSettings(
           title: isProfile ? 'Potong Foto Profil' : 'Potong Sampul',
@@ -107,34 +123,79 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
     }
   }
-  // ===============================
 
-  void _savePublicProfile() {
+  // === LOGIC 3: SIMPAN KE DATABASE ===
+  Future<void> _savePublicProfile() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Nama tidak boleh kosong')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama tidak boleh kosong')),
+      );
       return;
     }
 
-    // Kembalikan data (termasuk path foto baru jika ada)
-    Navigator.pop(context, {
-      'name': _nameController.text.trim(),
-      'username': _usernameController.text.trim(),
-      'bio': _bioController.text.trim(),
-      'profilePath': _pickedProfile?.path,
-      'bannerPath': _pickedBanner?.path,
-    });
+    setState(() => _isLoading = true); // Mulai Loading
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil publik diperbarui'),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 1),
-      ),
-    );
+    try {
+      final authService = AuthService();
+      
+      // Panggil fungsi updateProfile yang sudah kita buat di AuthService
+      final result = await authService.updateProfile(
+        name: _nameController.text.trim(),
+        username: _usernameController.text.trim(),
+        bio: _bioController.text.trim(),
+        avatar: _pickedProfile, // Kirim file avatar (kalau ada)
+        banner: _pickedBanner,  // Kirim file banner (kalau ada)
+      );
+
+      setState(() => _isLoading = false); // Stop Loading
+
+      if (mounted) {
+        if (result['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profil berhasil diperbarui!'),
+              backgroundColor: _kPurpleColor,
+            ),
+          );
+
+          // Kembalikan data baru ke ProfilePage biar UI langsung update
+          // Tanpa perlu refresh manual
+          final newData = result['data'];
+          Navigator.pop(context, {
+            'name': newData['name'],
+            'username': newData['username'],
+            'bio': newData['bio'],
+            'id': newData['id'],
+            'profilePath': newData['avatar_url'], 
+            'bannerPath': newData['banner_url'],
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Gagal update profil'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
+  // === HELPER: MENENTUKAN GAMBAR MANA YANG DITAMPILKAN ===
+  ImageProvider _getImageProvider(File? pickedFile, String? url, String assetDefault) {
+    if (pickedFile != null) {
+      return FileImage(pickedFile); // 1. Prioritas: Gambar yang baru dipilih
+    }
+    if (url != null && url.isNotEmpty) {
+      return NetworkImage(url); // 2. Prioritas: Gambar dari URL Database
+    }
+    return AssetImage(assetDefault); // 3. Fallback: Gambar default asset
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,17 +219,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: _savePublicProfile,
-            child: const Text(
-              'Selesai',
-              style: TextStyle(
-                color: _kPurpleColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
+          // Ganti tombol teks dengan Loading Indicator kalau sedang upload
+          _isLoading
+              ? const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: SizedBox(
+                    width: 20, 
+                    height: 20, 
+                    child: CircularProgressIndicator(color: _kPurpleColor, strokeWidth: 2),
+                  ),
+                )
+              : TextButton(
+                  onPressed: _savePublicProfile,
+                  child: const Text(
+                    'Selesai',
+                    style: TextStyle(
+                      color: _kPurpleColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
           const SizedBox(width: 8),
         ],
       ),
@@ -176,7 +247,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         physics: const ClampingScrollPhysics(),
         child: Column(
           children: [
-            _buildImageEditorSection(),
+            _buildImageEditorSection(), // Bagian Banner & Avatar
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -194,8 +265,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   _buildTextField(
                     label: 'Username',
                     controller: _usernameController,
-                    readOnly: true,
-                    hint: 'Username tidak dapat diubah',
+                    prefix: '@',
+                    hint: 'Username unik',
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -203,6 +274,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     controller: _bioController,
                     maxLines: 4,
                     hint: 'Ceritakan sedikit tentang dirimu...',
+                  ),
+                  const SizedBox(height: 16),
+                  // Email Read Only
+                  _buildTextField(
+                    label: 'Email',
+                    controller: TextEditingController(text: widget.initialEmail),
+                    readOnly: true,
+                    hint: 'Email kamu',
                   ),
 
                   const SizedBox(height: 32),
@@ -243,24 +322,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
             right: 0,
             height: 160,
             child: GestureDetector(
-              onTap: () =>
-                  _pickImage(isProfile: false), // Klik banner untuk ganti
+              onTap: () => _pickImage(isProfile: false), // Klik banner untuk ganti
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
-                  image: _pickedBanner != null
-                      ? DecorationImage(
-                          image: FileImage(_pickedBanner!), // Tampilkan hasil crop
-                          fit: BoxFit.cover,
-                        )
-                      : DecorationImage(
-                          image: AssetImage(_defaultBanner), 
-                          fit: BoxFit.cover,
-                          colorFilter: ColorFilter.mode(
-                            Colors.black.withOpacity(0.2),
-                            BlendMode.darken,
-                          ),
-                        ),
+                  image: DecorationImage(
+                    image: _getImageProvider(
+                      _pickedBanner, 
+                      widget.initialBannerUrl, 
+                      _defaultBannerAsset
+                    ),
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 child: Center(
                   child: Container(
@@ -294,20 +367,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.grey.shade300,
-                    backgroundImage: _pickedProfile != null
-                        ? FileImage(_pickedProfile!) 
-                        : (_defaultProfileUrl != null
-                              ? NetworkImage(_defaultProfileUrl!)
-                              : const AssetImage('assets/images/ava_default.jpg') as ImageProvider),
-                    child: null,
+                    // Tampilkan gambar dengan logika prioritas
+                    backgroundImage: _getImageProvider(
+                      _pickedProfile, 
+                      widget.initialAvatarUrl, 
+                      _defaultAvatarAsset
+                    ),
                   ),
                 ),
                 Positioned(
                   bottom: 0,
                   right: 0,
                   child: GestureDetector(
-                    onTap: () =>
-                        _pickImage(isProfile: true), // Klik ikon edit profile
+                    onTap: () => _pickImage(isProfile: true), // Klik ikon edit profile
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -356,9 +428,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
           maxLines: maxLines,
           readOnly: readOnly,
           style: TextStyle(
-            fontWeight: FontWeight.w500, 
+            fontWeight: FontWeight.w500,
             color: readOnly ? _kSubTextColor : _kTextColor,
-            fontSize: 14.0, 
+            fontSize: 14.0,
           ),
           decoration: InputDecoration(
             hintText: hint,
@@ -386,5 +458,4 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ],
     );
   }
-
 }

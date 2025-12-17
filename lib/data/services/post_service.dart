@@ -301,25 +301,29 @@ class PostService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getLikedPosts() async {
+Future<List<Map<String, dynamic>>> getLikedPosts() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     
     try {
       print('🔄 getLikedPosts: Fetching liked posts');
       final response = await http.get(
-        Uri.parse('$baseUrl/posts/liked/all'),
+        Uri.parse('$baseUrl/me/likes'), 
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
+      // -----------------------------
 
       print('📡 getLikedPosts: Status ${response.statusCode}');
       
       if (response.statusCode == 200) {
+        // Karena backend pakai paginate(10), data post ada di dalam key ['data']
+        // Jadi kodingan ini sudah benar:
         final List data = jsonDecode(response.body)['data'];
+        
         return List<Map<String, dynamic>>.from(data);
       }
       return [];
