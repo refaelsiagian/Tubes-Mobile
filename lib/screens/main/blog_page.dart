@@ -6,6 +6,10 @@ import '../../data/services/post_service.dart';
 import '../../data/services/auth_service.dart';
 import '../lembar/edit_lembar.dart';
 
+// --- IMPORT NAVIGASI PROFILE ---
+import '../profile/profile_page.dart';       // Halaman Profil Saya
+import '../profile/author_profile_page.dart'; // Halaman Profil Orang Lain
+
 // Warna-warna konstanta
 const Color _kTextColor = Color(0xFF1A1A1A);
 const Color _kPurpleColor = Color(0xFF8D07C6);
@@ -64,6 +68,7 @@ class _BlogPageState extends State<BlogPage> {
         _post = result['data'];
         _isLiked = _post?['is_liked'] ?? false;
         _isBookmarked = _post?['is_bookmarked'] ?? false;
+        _isFollowing = _post?['author']?['is_following'] ?? false;
         _loadContent(_post?['content']);
       });
     }
@@ -86,6 +91,31 @@ class _BlogPageState extends State<BlogPage> {
       });
     }
   }
+
+  // --- LOGIC NAVIGASI PROFIL ---
+  void _navigateToAuthorProfile() {
+    final authorId = _post?['author']['id'];
+    final currentUserId = _currentUser?['id'];
+
+    if (authorId == null) return;
+
+    // Jika ID Author sama dengan ID User yang login -> Buka ProfilePage (Edit mode)
+    // Jika Beda -> Buka AuthorProfilePage (View Only)
+    if (currentUserId != null && authorId == currentUserId) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ProfilePage()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AuthorProfilePage(userId: authorId),
+        ),
+      );
+    }
+  }
+  // -----------------------------
 
   Future<void> _submitComment() async {
     if (_commentController.text.trim().isEmpty) return;
@@ -120,6 +150,26 @@ class _BlogPageState extends State<BlogPage> {
       );
     } else {
       _loadPostDetails(); 
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final username = _post?['author']?['username'];
+    if (username == null) return;
+
+    setState(() => _isFollowing = !_isFollowing);
+
+    final result = await _authService.toggleFollow(username);
+
+    if (mounted) {
+      if (!result['success']) {
+        setState(() => _isFollowing = !_isFollowing);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      } else {
+        _loadPostDetails();
+      }
     }
   }
 
@@ -322,32 +372,30 @@ class _BlogPageState extends State<BlogPage> {
   }
 
   // --- UPDATED: Fungsi Ubah Status (Pengganti _changeVisibility) ---
-  Future<void> _updateStatus(String newStatus) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Mengubah status ke ${newStatus == 'published' ? 'Terbit' : 'Draft'}...'), duration: const Duration(seconds: 1)),
-    );
+// Di blog_page.dart, ganti fungsi _updateStatus lama dengan ini:
+Future<void> _updateStatus(String newStatus) async {
+  // Gunakan fungsi updateStatus yang baru dibuat, bukan updatePost
+  final result = await _postService.updateStatus(
+    widget.postId,
+    newStatus,
+  );
 
-    // Panggil updatePost dengan parameter Nullable (id, null, null, status)
-    final result = await _postService.updatePost(
-      widget.postId,
-      null, // Title tidak berubah
-      null, // Content tidak berubah
-      newStatus, // Status berubah
-    );
-
-    if (mounted) {
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Berhasil diubah ke ${newStatus == 'published' ? 'Terbit' : 'Draft'}')),
-        );
-        _loadPostDetails(); // Refresh data
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Gagal mengubah status')),
-        );
-      }
+  if (mounted) {
+    if (result['success']) {
+      setState(() {
+        _post = result['data']; // Update data lokal dengan respon terbaru
+      });
+      _loadPostDetails(); // Refresh detail untuk memastikan sinkronisasi
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Berhasil diubah ke $newStatus')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Gagal mengubah status')),
+      );
     }
   }
+}
 
   void _confirmDelete() {
     showDialog(
@@ -362,14 +410,14 @@ class _BlogPageState extends State<BlogPage> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              final result = await _postService.deletePost(widget.postId);
+              Navigator.pop(context); // Tutup dialog
+              final success = await _postService.deletePost(widget.postId);
               if (mounted) {
-                if (result) {
-                  Navigator.pop(context); // Close BlogPage
+                if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Lembar berhasil dihapus')),
                   );
+                  Navigator.pop(context, true); // Kembali dengan hasil true untuk refresh
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Gagal menghapus lembar')),
@@ -432,7 +480,7 @@ class _BlogPageState extends State<BlogPage> {
               color: _isBookmarked ? _kPurpleColor : _kTextColor,
               size: 22,
             ),
-            onPressed: () => setState(() => _isBookmarked = !_isBookmarked),
+            onPressed: _toggleBookmark,
           ),
           if (_post != null && _currentUser != null && _post!['author']['id'] == _currentUser!['id'])
             IconButton(
@@ -452,44 +500,36 @@ class _BlogPageState extends State<BlogPage> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18, 
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), 
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // --- CLICKABLE AUTHOR INFO (TOP) ---
+                  GestureDetector(
+                    onTap: _navigateToAuthorProfile, // Panggil Fungsi Navigasi
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min, // Agar klik area tidak melebar
                       children: [
-                        Text(
-                          getAuthorName(),
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        CircleAvatar(
+                          radius: 18, 
+                          backgroundColor: Colors.grey.shade200,
+                          backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), 
                         ),
-                        Row(
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                             Text(
+                            Text(
+                              getAuthorName(),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                            Text(
                               _formatDate(_post?['published_at']),
                               style: const TextStyle(color: _kSubTextColor, fontSize: 11),
                             ),
-                            // Tambahkan indikator jika Draft
-                            if (getStatus() == 'draft') ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.orange, width: 0.5)
-                                ),
-                                child: const Text('DRAFT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.orange)),
-                              )
-                            ]
                           ],
-                        )
+                        ),
                       ],
                     ),
                   ),
+                  
+                  const Spacer(),
                   
                   // Only show Follow button if not viewing own post
                   if (_post?['author']?['id'] != null)
@@ -506,7 +546,7 @@ class _BlogPageState extends State<BlogPage> {
                         }
                         
                         return GestureDetector(
-                          onTap: () => setState(() => _isFollowing = !_isFollowing),
+                          onTap: _toggleFollow,
                           child: Text(
                             _isFollowing ? 'Mengikuti' : 'Ikuti',
                             style: const TextStyle(
@@ -561,38 +601,51 @@ class _BlogPageState extends State<BlogPage> {
             
             const SizedBox(height: 40),
             
-            // --- 4. PROFIL PENULIS BAWAH (Minimalis Border) ---
+            // --- 4. PROFIL PENULIS BAWAH (Minimalis Border + Clickable) ---
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(color: Colors.grey.shade200),
                   bottom: BorderSide(color: Colors.grey.shade200),
                 ),
               ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24, 
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), // Smart Image
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _navigateToAuthorProfile, // Panggil Fungsi Navigasi
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Row(
                       children: [
-
-                        const SizedBox(height: 2),
-                        Text(
-                          getAuthorName(),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        CircleAvatar(
+                          radius: 24, 
+                          backgroundColor: Colors.grey.shade200,
+                          backgroundImage: _getSmartImage(getAuthorAvatar(), _defaultAvatar), // Smart Image
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 2),
+                              Text(
+                                getAuthorName(),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Lihat profil penulis',
+                                style: TextStyle(color: _kPurpleColor, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _kSubTextColor),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
 
@@ -714,17 +767,6 @@ class _BlogPageState extends State<BlogPage> {
                         comment['content'] ?? '',
                         style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF333333)),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.favorite_border, size: 14, color: _kSubTextColor),
-                          const SizedBox(width: 16),
-                          Text(
-                            "Balas",
-                            style: const TextStyle(fontSize: 11, color: _kSubTextColor),
-                          ),
-                        ],
-                      ),
                       const SizedBox(height: 12),
                       if (index != _comments.length - 1)
                         Divider(height: 1, color: Colors.grey.shade100),
@@ -794,25 +836,6 @@ class _BlogPageState extends State<BlogPage> {
                       ),
                     ),
                   ],
-                ),
-              ),
-
-              const Spacer(),
-
-              // Tombol Share
-              const Icon(
-                Icons.share_outlined,
-                color: _kSubTextColor,
-                size: 20,
-              ),
-              const SizedBox(width: 10), 
-              // Tombol Bookmark
-              GestureDetector(
-                 onTap: _toggleBookmark,
-                 child: Icon(
-                  _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: _isBookmarked ? _kPurpleColor : _kSubTextColor,
-                  size: 22,
                 ),
               ),
             ],

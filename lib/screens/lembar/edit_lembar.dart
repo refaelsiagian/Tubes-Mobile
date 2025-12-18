@@ -2,6 +2,8 @@ import 'dart:io'; // Tambahkan import dart:io untuk File
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../data/services/post_service.dart';
 import 'review_lembar.dart';
 
@@ -172,56 +174,108 @@ class _EditLembarPageState extends State<EditLembarPage> {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
+      bottomNavigationBar: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: Color(0xFFE6E6E6))),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildToolbarButton(
-                Icons.format_bold,
-                () => _toggleAttribute(quill.Attribute.bold),
-              ),
-              _buildToolbarButton(
-                Icons.format_italic,
-                () => _toggleAttribute(quill.Attribute.italic),
-              ),
-              _buildToolbarButton(
-                Icons.format_underline,
-                () => _toggleAttribute(quill.Attribute.underline),
-              ),
-              _buildToolbarButton(
-                Icons.format_quote,
-                () => _toggleAttribute(quill.Attribute.blockQuote),
-              ),
-              _buildToolbarButton(
-                Icons.format_list_bulleted,
-                () => _toggleAttribute(quill.Attribute.ul),
-              ),
-              _buildToolbarButton(
-                Icons.format_list_numbered,
-                () => _toggleAttribute(quill.Attribute.ol),
-              ),
-              // Opsional: Tambahkan tombol add image jika ingin bisa nambah gambar di sini
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: _EditorToolbar(
+            controller: _controller,
+            onPickImage: _pickAndInsertImage,
+            onToggleBold: () async => _toggleAttribute(quill.Attribute.bold),
+            onToggleItalic: () async =>
+                _toggleAttribute(quill.Attribute.italic),
+            onToggleUnderline: () async =>
+                _toggleAttribute(quill.Attribute.underline),
+            onInsertQuote: () async =>
+                _toggleAttribute(quill.Attribute.blockQuote),
+            onInsertBullets: () async => _toggleAttribute(quill.Attribute.ul),
+            onInsertNumbers: () async => _toggleAttribute(quill.Attribute.ol),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildToolbarButton(IconData icon, VoidCallback onPressed) {
-    return IconButton(
-      icon: Icon(icon, size: 22),
-      color: const Color(0xFF8D07C6),
-      onPressed: onPressed,
-      padding: const EdgeInsets.all(8),
-      constraints: const BoxConstraints(),
-    );
+  // --- FUNGSI TAMBAHAN UNTUK TOOLBAR ---
+  Future<void> _pickAndInsertImage() async {
+    _focusNode.unfocus();
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked == null || !mounted) return;
+
+    final savedPath = await _saveImage(File(picked.path));
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
+
+    int index = _controller.selection.baseOffset;
+    int length = _controller.selection.extentOffset - index;
+
+    if (index < 0) {
+      index = 0; 
+      length = 0;
+    }
+
+    final embed = quill.BlockEmbed.image(savedPath);
+    
+    // 1. Masukkan Gambar
+    _controller.replaceText(index, length, embed, null);
+
+    // 2. Masukkan Enter (\n) setelah gambar
+    _controller.document.insert(index + 1, '\n');
+
+    // 3. Pindah kursor
+    final newCursorOffset = index + 2;
+    setState(() {
+      _controller.updateSelection(
+        TextSelection.collapsed(offset: newCursorOffset),
+        quill.ChangeSource.local,
+      );
+    });
+
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // 4. LOGIKA FORMATTING KHUSUS GAMBAR:
+    if (index == 0) {
+      _controller.formatSelection(quill.Attribute.h2);
+      _controller.formatSelection(quill.Attribute.bold);
+    } else {
+      _controller.formatSelection(quill.Attribute.clone(quill.Attribute.header, null));
+      _controller.formatSelection(quill.Attribute.clone(quill.Attribute.bold, null));
+    }
+    
+    FocusScope.of(context).requestFocus(_focusNode);
+  }
+
+  Future<String> _saveImage(File file) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final filename = 'lembar_${DateTime.now().millisecondsSinceEpoch}.png';
+    final path = '${directory.path}/$filename';
+    final copied = await file.copy(path);
+    return copied.path;
+  }
+
+  void _toggleAttribute(quill.Attribute attribute) {
+    final selection = _controller.selection;
+    if (!selection.isValid) return;
+
+    final current = _controller.getSelectionStyle().attributes[attribute.key];
+
+    if (current == attribute) {
+      _controller.formatSelection(quill.Attribute.clone(attribute, null));
+    } else {
+      _controller.formatSelection(attribute);
+    }
   }
 
   void _onSavePressed() {
@@ -274,18 +328,62 @@ class _EditLembarPageState extends State<EditLembarPage> {
       ),
     );
   }
+}
 
-  void _toggleAttribute(quill.Attribute attribute) {
-    final selection = _controller.selection;
-    if (!selection.isValid) return;
+// --- WIDGET TOOLBAR CUSTOM ---
+class _EditorToolbar extends StatelessWidget {
+  final quill.QuillController controller;
+  final VoidCallback onPickImage;
+  final VoidCallback onToggleBold;
+  final VoidCallback onToggleItalic;
+  final VoidCallback onToggleUnderline;
+  final VoidCallback onInsertQuote;
+  final VoidCallback onInsertBullets;
+  final VoidCallback onInsertNumbers;
 
-    final current = _controller.getSelectionStyle().attributes[attribute.key];
+  const _EditorToolbar({
+    required this.controller,
+    required this.onPickImage,
+    required this.onToggleBold,
+    required this.onToggleItalic,
+    required this.onToggleUnderline,
+    required this.onInsertQuote,
+    required this.onInsertBullets,
+    required this.onInsertNumbers,
+  });
 
-    if (current == attribute) {
-      _controller.formatSelection(quill.Attribute.clone(attribute, null));
-    } else {
-      _controller.formatSelection(attribute);
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _ToolbarButton(icon: Icons.format_bold, onPressed: onToggleBold),
+        _ToolbarButton(icon: Icons.format_italic, onPressed: onToggleItalic),
+        _ToolbarButton(icon: Icons.format_underline, onPressed: onToggleUnderline),
+        _ToolbarButton(icon: Icons.format_quote, onPressed: onInsertQuote),
+        _ToolbarButton(icon: Icons.format_list_bulleted, onPressed: onInsertBullets),
+        _ToolbarButton(icon: Icons.format_list_numbered, onPressed: onInsertNumbers),
+        _ToolbarButton(icon: Icons.image_outlined, onPressed: onPickImage),
+      ],
+    );
+  }
+}
+
+class _ToolbarButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _ToolbarButton({required this.icon, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, size: 22),
+      color: const Color(0xFF8D07C6),
+      onPressed: onPressed,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(),
+    );
   }
 }
 

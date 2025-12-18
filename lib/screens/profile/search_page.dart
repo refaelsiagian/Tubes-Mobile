@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../core/utils/navigation_helper.dart';
-import 'blog_page.dart';
-import '../profile/author_profile_page.dart';
+import '../main/blog_page.dart';
+import '../profile/author_profile_page.dart'; 
 import '../../data/services/post_service.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/services/search_service.dart';
@@ -517,7 +517,7 @@ class _SearchPageState extends State<SearchPage>
     );
   }
 
-Widget _buildOrangResult() {
+  Widget _buildOrangResult() {
     if (_orangResults.isEmpty) {
       return const Center(
           child: Text('Tidak ada pengguna ditemukan',
@@ -529,14 +529,11 @@ Widget _buildOrangResult() {
       itemBuilder: (context, index) {
         final user = _orangResults[index];
         
-        // Ambil data stats (Followers) dari backend
-        // Ingat backend kirim: stats: { followers: 10, ... }
         final stats = user['stats'] ?? {};
-        // Gunakan logika aman seperti di Profile Page
         final followersCount = stats['followers'] ?? stats['followers_count'] ?? 0;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 12), // Kasih jarak antar item
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -568,7 +565,6 @@ Widget _buildOrangResult() {
                   style: const TextStyle(color: _kSubTextColor, fontSize: 13),
                 ),
                 const SizedBox(height: 4),
-                // Tampilkan Stats Follower!
                 Text(
                   '$followersCount Pengikut', 
                   style: const TextStyle(
