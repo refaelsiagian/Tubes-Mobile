@@ -1,3 +1,4 @@
+import 'dart:io'; // Tambahkan ini di baris paling atas
 import 'package:flutter/material.dart';
 import '../../data/services/series_service.dart';
 import '../main/blog_page.dart';
@@ -34,8 +35,10 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
   Future<void> _loadJilidContent() async {
     final seriesService = SeriesService();
     // Fetch fresh data from API
-    final result = await seriesService.getSeriesDetail(int.tryParse(_currentJilidData['id'].toString()) ?? 0);
-    
+    final result = await seriesService.getSeriesDetail(
+      int.tryParse(_currentJilidData['id'].toString()) ?? 0,
+    );
+
     if (result['success']) {
       final data = result['data'];
       if (mounted) {
@@ -49,7 +52,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
         });
       }
     } else {
-       if (mounted) {
+      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -67,7 +70,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
     // Refresh data setelah kembali dari Edit
     if (result == true) {
       setState(() {
-        _isLoading = true; 
+        _isLoading = true;
       });
       _loadJilidContent();
 
@@ -106,8 +109,10 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
     if (confirm == true) {
       if (_currentJilidData['id'] != null) {
         final seriesService = SeriesService();
-        final success = await seriesService.deleteSeries(int.tryParse(_currentJilidData['id'].toString()) ?? 0);
-        
+        final success = await seriesService.deleteSeries(
+          int.tryParse(_currentJilidData['id'].toString()) ?? 0,
+        );
+
         if (success) {
           if (mounted) {
             Navigator.pop(context); // Pop Detail Page
@@ -119,7 +124,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
             );
           }
         } else {
-           if (mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Gagal menghapus jilid")),
             );
@@ -137,6 +142,36 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
     } catch (e) {
       return 'Baru saja';
     }
+  }
+
+  // Update fungsi ini di dalam class _JilidDetailPageState
+  
+  ImageProvider _getSmartImage(String? path, String defaultAsset) {
+    if (path == null || path.isEmpty) {
+      return AssetImage(defaultAsset);
+    }
+    
+    // 1. Jika sudah URL lengkap (dari PostResource atau upload external)
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    }
+    
+    // 2. Jika Asset aplikasi
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    }
+
+    // 3. [PERBAIKAN] Jika File Lokal (Biasanya path absolut diawali dengan '/')
+    // Path file di Android/iOS selalu dimulai dengan '/' (contoh: /data/user/...)
+    if (path.startsWith('/')) {
+      return FileImage(File(path));
+    }
+
+    // 4. [TAMBAHAN] Jika sampai sini, berarti ini Raw Path dari Database (thumbnails/...)
+    // Kita harus menyusunnya menjadi URL lengkap manual.
+    // Sesuaikan IP ini dengan konfigurasi Anda (10.0.2.2 untuk Emulator)
+    const String storageBaseUrl = 'http://10.0.2.2:8000/storage/';
+    return NetworkImage('$storageBaseUrl$path');
   }
 
   @override
@@ -441,6 +476,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                   ),
                 ),
 
+                // --- BAGIAN GAMBAR YANG DIPERBAIKI ---
                 Padding(
                   padding: const EdgeInsets.only(left: 12),
                   child: Container(
@@ -450,12 +486,13 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[100],
                       image: DecorationImage(
-                        image: lembar['thumbnail'] != null
-                            ? NetworkImage(lembar['thumbnail'])
-                            : const AssetImage(
-                                    'assets/images/thumb_default.jpg',
-                                  )
-                                  as ImageProvider,
+                        // PERBAIKAN:
+                        // 1. Cek 'thumbnail_url' dulu (sesuai API Backend)
+                        // 2. Gunakan _getSmartImage agar aman
+                        image: _getSmartImage(
+                          lembar['thumbnail_url'] ?? lembar['thumbnail'],
+                          'assets/images/thumb_default.jpg', // Pastikan asset ini ada
+                        ),
                         fit: BoxFit.cover,
                       ),
                     ),

@@ -638,7 +638,10 @@ class _ProfilePageState extends State<ProfilePage>
     if (result != null && result is Map<String, dynamic>) {
       setState(() {
         _userName = result['name'] ?? _userName;
-        _currentUsername = result['username'] ?? _currentUsername;
+        final newUsername = result['username'] ?? _currentUsername;
+        _currentUsername = newUsername.startsWith('@')
+            ? newUsername
+            : '@$newUsername';
         _userBio = result['bio'] ?? _userBio;
         _userId = result['id']; // Save ID
         if (result['profilePath'] != null)

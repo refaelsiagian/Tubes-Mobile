@@ -20,6 +20,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   final _authService = AuthService();
   String _currentEmail = '';
   bool _isLoading = true;
+  bool _isVerified = false;
+  bool _sendingVerification = false;
+  String? _verificationMessage;
+  String? _verificationError;
 
   @override
   void initState() {
@@ -32,9 +36,32 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     if (mounted && profile['success']) {
       setState(() {
         _currentEmail = profile['data']['email'] ?? '';
+        _isVerified = profile['data']['is_verified'] == true ||
+            profile['data']['email_verified_at'] != null;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _resendVerification() async {
+    setState(() {
+      _sendingVerification = true;
+      _verificationMessage = null;
+      _verificationError = null;
+    });
+
+    final result = await _authService.sendVerificationEmail();
+
+    if (!mounted) return;
+
+    setState(() {
+      _sendingVerification = false;
+      if (result['success'] == true) {
+        _verificationMessage = result['message'] ?? 'Email verifikasi dikirim';
+      } else {
+        _verificationError = result['message'] ?? 'Gagal mengirim email verifikasi';
+      }
+    });
   }
 
   void _showChangeEmailSheet() {
@@ -63,6 +90,15 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => _ChangePasswordForm(),
+    );
+  }
+
+  void _showNeedVerification() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Verifikasi email terlebih dahulu untuk mengubah data akun'),
+        backgroundColor: _kErrorColor,
+      ),
     );
   }
 
@@ -147,12 +183,89 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ),
                   const SizedBox(height: 20),
 
+                  if (!_isVerified) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF2E7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFFC48C)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Email belum terverifikasi',
+                            style: TextStyle(
+                              color: Color(0xFFE65100),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Verifikasi email terlebih dahulu untuk mengubah email dan password.',
+                            style: TextStyle(
+                              color: Color(0xFF8B5E3C),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: _sendingVerification ? null : _resendVerification,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFE65100),
+                                side: const BorderSide(color: Color(0xFFE65100)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: _sendingVerification
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFE65100),
+                                      ),
+                                    )
+                                  : const Text('Kirim Ulang Email Verifikasi'),
+                            ),
+                          ),
+                          if (_verificationMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _verificationMessage!,
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                          if (_verificationError != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _verificationError!,
+                              style: const TextStyle(
+                                color: _kErrorColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
                   // Email Tile
                   _buildSecurityActionTile(
                     title: 'Email Address',
                     value: _currentEmail,
                     icon: Icons.email_outlined,
-                    onTap: _showChangeEmailSheet,
+                    onTap: _isVerified
+                        ? _showChangeEmailSheet
+                        : () => _showNeedVerification(),
                   ),
 
                   const SizedBox(height: 12),
@@ -162,7 +275,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     title: 'Password',
                     value: '••••••••',
                     icon: Icons.lock_outline_rounded,
-                    onTap: _showChangePasswordSheet,
+                    onTap: _isVerified
+                        ? _showChangePasswordSheet
+                        : () => _showNeedVerification(),
                   ),
 
                   const SizedBox(height: 40),
@@ -254,12 +369,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   }
 }
 
-// --- Change Email Form ---
+// --- PERBAIKAN 1: Change Email Form ---
+// --- PERBAIKAN 1: Change Email Form (Dengan Error Text & Delayed SnackBar) ---
 class _ChangeEmailForm extends StatefulWidget {
   final String currentEmail;
   final Function(String) onEmailChanged;
 
   const _ChangeEmailForm({
+    super.key, // Tambahkan super.key best practice
     required this.currentEmail,
     required this.onEmailChanged,
   });
@@ -272,20 +389,29 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
   final _newEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
+
   bool _isLoading = false;
+  String? _errorMessage; // Variabel untuk menampung pesan error
+
+  @override
+  void dispose() {
+    _newEmailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleChangeEmail() async {
+    // Reset error
+    setState(() => _errorMessage = null);
+    FocusScope.of(context).unfocus();
+
     if (_newEmailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email baru tidak boleh kosong')),
-      );
+      setState(() => _errorMessage = 'Email baru tidak boleh kosong');
       return;
     }
 
     if (_passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password diperlukan untuk verifikasi')),
-      );
+      setState(() => _errorMessage = 'Password diperlukan untuk verifikasi');
       return;
     }
 
@@ -300,18 +426,30 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
 
     if (mounted) {
       if (result['success']) {
+        // 1. Update Data Parent
         widget.onEmailChanged(_newEmailController.text.trim());
+
+        // 2. Tutup Sheet Dulu
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email berhasil diubah')),
-        );
+
+        // 3. Tunggu sebentar (300ms) agar sheet tertutup sempurna
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // 4. Baru Tampilkan SnackBar di Halaman Utama (Parent)
+        if (mounted) {
+          // Cek mounted lagi karena context berubah
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Email berhasil diubah'),
+              backgroundColor: Color(0xFF8D07C6),
+            ),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Gagal mengubah email'),
-            backgroundColor: _kErrorColor,
-          ),
-        );
+        // JIKA GAGAL: Tampilkan teks merah di dalam sheet (Bukan SnackBar)
+        setState(() {
+          _errorMessage = result['message'] ?? 'Gagal mengubah email';
+        });
       }
     }
   }
@@ -345,7 +483,7 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
           const SizedBox(height: 8),
           Text(
             'Email saat ini: ${widget.currentEmail}',
-            style: const TextStyle(color: _kSubTextColor),
+            style: const TextStyle(color: Color(0xFF757575)),
           ),
           const SizedBox(height: 24),
 
@@ -374,13 +512,46 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
             ),
           ),
 
+          // --- TAMPILKAN ERROR DI SINI ---
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE53935).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFE53935),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFE53935),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // -------------------------------
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _isLoading ? null : _handleChangeEmail,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _kPurpleColor,
+                backgroundColor: const Color(0xFF8D07C6),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -406,8 +577,10 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
   }
 }
 
-// --- Change Password Form ---
+// --- PERBAIKAN 2: Change Password Form (Dengan Error Text & Delayed SnackBar) ---
 class _ChangePasswordForm extends StatefulWidget {
+  const _ChangePasswordForm({super.key}); // Tambahkan key
+
   @override
   State<_ChangePasswordForm> createState() => _ChangePasswordFormState();
 }
@@ -422,33 +595,82 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+  String? _errorMessage; // Variabel error
+  String? _newPassHint;
+  Color? _newPassColor;
+  String? _confirmPassHint;
+  Color? _confirmPassColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _newPassController.addListener(_validateNewPassword);
+    _confirmPassController.addListener(_validateConfirmPassword);
+  }
+
+  @override
+  void dispose() {
+    _oldPassController.dispose();
+    _newPassController.dispose();
+    _confirmPassController.dispose();
+    super.dispose();
+  }
+
+  void _validateNewPassword() {
+    final text = _newPassController.text;
+    setState(() {
+      if (text.isEmpty) {
+        _newPassHint = null;
+        _newPassColor = null;
+      } else if (text.length < 6) {
+        _newPassHint = 'Minimal 6 karakter';
+        _newPassColor = _kErrorColor;
+      } else {
+        _newPassHint = 'Password kuat';
+        _newPassColor = Colors.green;
+      }
+    });
+    _validateConfirmPassword();
+  }
+
+  void _validateConfirmPassword() {
+    final confirm = _confirmPassController.text;
+    final newPass = _newPassController.text;
+    setState(() {
+      if (confirm.isEmpty) {
+        _confirmPassHint = null;
+        _confirmPassColor = null;
+      } else if (confirm == newPass) {
+        _confirmPassHint = 'Password cocok';
+        _confirmPassColor = Colors.green;
+      } else {
+        _confirmPassHint = 'Password tidak cocok';
+        _confirmPassColor = _kErrorColor;
+      }
+    });
+  }
 
   Future<void> _handleChangePassword() async {
+    setState(() => _errorMessage = null);
+    FocusScope.of(context).unfocus();
+
     if (_oldPassController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password lama tidak boleh kosong')),
-      );
+      setState(() => _errorMessage = 'Password lama tidak boleh kosong');
       return;
     }
 
     if (_newPassController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password baru tidak boleh kosong')),
-      );
+      setState(() => _errorMessage = 'Password baru tidak boleh kosong');
       return;
     }
 
     if (_newPassController.text != _confirmPassController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password baru tidak cocok')),
-      );
+      setState(() => _errorMessage = 'Password baru tidak cocok');
       return;
     }
 
     if (_newPassController.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password minimal 6 karakter')),
-      );
+      setState(() => _errorMessage = 'Password minimal 6 karakter');
       return;
     }
 
@@ -463,17 +685,22 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
 
     if (mounted) {
       if (result['success']) {
+        // SUKSES: Tutup dulu, baru SnackBar
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password berhasil diubah')),
-        );
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Password berhasil diubah'),
+              backgroundColor: Color(0xFF8D07C6),
+            ),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Gagal mengubah password'),
-            backgroundColor: _kErrorColor,
-          ),
-        );
+        // GAGAL: Tampilkan text merah di sheet
+        setState(() {
+          _errorMessage = result['message'] ?? 'Gagal mengubah password';
+        });
       }
     }
   }
@@ -518,6 +745,8 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
             _newPassController,
             _obscureNew,
             () => setState(() => _obscureNew = !_obscureNew),
+            helperText: _newPassHint,
+            helperColor: _newPassColor,
           ),
           const SizedBox(height: 16),
           _buildPassField(
@@ -525,8 +754,43 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
             _confirmPassController,
             _obscureConfirm,
             () => setState(() => _obscureConfirm = !_obscureConfirm),
+            helperText: _confirmPassHint,
+            helperColor: _confirmPassColor,
           ),
 
+          // --- TAMPILKAN ERROR DI SINI ---
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE53935).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFE53935),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFE53935),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // -------------------------------
           const SizedBox(height: 32),
 
           SizedBox(
@@ -534,7 +798,7 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
             child: ElevatedButton(
               onPressed: _isLoading ? null : _handleChangePassword,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _kPurpleColor,
+                backgroundColor: const Color(0xFF8D07C6),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -559,11 +823,13 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
     );
   }
 
+  // ... (Widget _buildPassField tetap sama) ...
   Widget _buildPassField(
     String label,
     TextEditingController controller,
     bool obscure,
     VoidCallback onToggle,
+    {String? helperText, Color? helperColor}
   ) {
     return TextField(
       controller: controller,
@@ -575,6 +841,10 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
           onPressed: onToggle,
         ),
+        helperText: helperText,
+        helperStyle: helperColor != null
+            ? TextStyle(color: helperColor, fontSize: 12)
+            : null,
       ),
     );
   }

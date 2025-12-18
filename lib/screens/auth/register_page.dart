@@ -21,6 +21,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  String? _passwordMismatchMessage;
   final _authService = AuthService();
   
   Timer? _debounce;
@@ -58,10 +61,27 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
+  void _updatePasswordMismatch() {
+    final password = _passwordController.text;
+    final confirm = _confirmPasswordController.text;
+    setState(() {
+      if (confirm.isEmpty) {
+        _passwordMismatchMessage = null;
+      } else if (password != confirm) {
+        _passwordMismatchMessage = 'Kata sandi dan konfirmasi tidak sama';
+      } else {
+        _passwordMismatchMessage = null;
+      }
+    });
+  }
+
   Future<void> _handleRegister() async {
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kata sandi tidak sama')),
+        const SnackBar(
+          content: Text('Kata sandi tidak sama'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -197,6 +217,20 @@ class _RegisterPageState extends State<RegisterPage> {
               context: context,
               controller: _passwordController,
               isPassword: true,
+              obscureText: _obscurePassword,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: const Color(0xFF999999),
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+              onChanged: (_) => _updatePasswordMismatch(),
             ),
             const SizedBox(height: 16),
             // Input Konfirmasi Kata Sandi
@@ -206,6 +240,22 @@ class _RegisterPageState extends State<RegisterPage> {
               context: context,
               controller: _confirmPasswordController,
               isPassword: true,
+              obscureText: _obscureConfirmPassword,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                  color: const Color(0xFF999999),
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                  });
+                },
+              ),
+              onChanged: (_) => _updatePasswordMismatch(),
+              helperText: _passwordMismatchMessage,
+              helperColor: Colors.red,
             ),
             const SizedBox(height: 24),
             // Tombol Daftar (Gradient)
@@ -248,6 +298,11 @@ class _RegisterPageState extends State<RegisterPage> {
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
     bool isPassword = false,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    ValueChanged<String>? onChanged,
+    String? helperText,
+    Color? helperColor,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +312,8 @@ class _RegisterPageState extends State<RegisterPage> {
         TextField(
           controller: controller,
           keyboardType: keyboardType,
-          obscureText: isPassword,
+          onChanged: onChanged,
+          obscureText: isPassword ? obscureText : false,
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: _kTextColor),
@@ -267,6 +323,11 @@ class _RegisterPageState extends State<RegisterPage> {
               vertical: 6.0,
               horizontal: 16.0,
             ),
+            suffixIcon: isPassword ? suffixIcon : null,
+            helperText: helperText,
+            helperStyle: helperColor != null
+                ? TextStyle(color: helperColor, fontSize: 12)
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24.0),
               borderSide: const BorderSide(
