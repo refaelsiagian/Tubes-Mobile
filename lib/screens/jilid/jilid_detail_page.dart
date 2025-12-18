@@ -35,8 +35,10 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
   Future<void> _loadJilidContent() async {
     final seriesService = SeriesService();
     // Fetch fresh data from API
-    final result = await seriesService.getSeriesDetail(int.tryParse(_currentJilidData['id'].toString()) ?? 0);
-    
+    final result = await seriesService.getSeriesDetail(
+      int.tryParse(_currentJilidData['id'].toString()) ?? 0,
+    );
+
     if (result['success']) {
       final data = result['data'];
       if (mounted) {
@@ -51,7 +53,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
         });
       }
     } else {
-       if (mounted) {
+      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -69,7 +71,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
     // Refresh data setelah kembali dari Edit
     if (result == true) {
       setState(() {
-        _isLoading = true; 
+        _isLoading = true;
       });
       _loadJilidContent();
 
@@ -108,8 +110,10 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
     if (confirm == true) {
       if (_currentJilidData['id'] != null) {
         final seriesService = SeriesService();
-        final success = await seriesService.deleteSeries(int.tryParse(_currentJilidData['id'].toString()) ?? 0);
-        
+        final success = await seriesService.deleteSeries(
+          int.tryParse(_currentJilidData['id'].toString()) ?? 0,
+        );
+
         if (success) {
           if (mounted) {
             Navigator.pop(context); // Pop Detail Page
@@ -121,7 +125,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
             );
           }
         } else {
-           if (mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Gagal menghapus jilid")),
             );
@@ -487,6 +491,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                   ),
                 ),
 
+                // --- BAGIAN GAMBAR YANG DIPERBAIKI ---
                 Padding(
                   padding: const EdgeInsets.only(left: 12),
                   child: Container(
@@ -496,9 +501,12 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[100],
                       image: DecorationImage(
+                        // PERBAIKAN:
+                        // 1. Cek 'thumbnail_url' dulu (sesuai API Backend)
+                        // 2. Gunakan _getSmartImage agar aman
                         image: _getSmartImage(
-                          lembar['thumbnail_url'],
-                          defaultThumb,
+                          lembar['thumbnail_url'] ?? lembar['thumbnail'],
+                          'assets/images/thumb_default.jpg', // Pastikan asset ini ada
                         ),
                         fit: BoxFit.cover,
                       ),
