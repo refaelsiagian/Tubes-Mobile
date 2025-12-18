@@ -164,6 +164,72 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> getUserProfile(String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/$username'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body)['data'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Gagal memuat profil pengguna',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Koneksi error: $e',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserProfileById(int id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/id/$id'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body)['data'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Gagal memuat profil pengguna',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Koneksi error: $e',
+      };
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
@@ -342,6 +408,44 @@ class AuthService {
     } catch (e) {
       print("❌ Error update profile: $e");
       return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleFollow(String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        return {'success': false, 'message': 'Silakan login terlebih dahulu'};
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/follow/$username'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body),
+        };
+      } else {
+        final data = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Gagal mengikuti pengguna',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Koneksi error: $e',
+      };
     }
   }
 } // <--- Ini kurung tutup class AuthService

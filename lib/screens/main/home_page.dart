@@ -4,7 +4,6 @@ import 'blog_page.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
-import '../../core/utils/navigation_helper.dart';
 import '../../data/services/post_service.dart';
 
 // Konstanta Warna Modern
@@ -278,125 +277,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // === HELPER METHODS: MODERN MENU DESIGN ===
-
-  void _showBlogMenu(BuildContext context, Map<String, dynamic> blog) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag Handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-
-                // Item 1: Tidak Tertarik
-                _buildMenuItem(
-                  icon: Icons.remove_circle_outline_rounded,
-                  label: 'Tidak tertarik',
-                  color: Colors.redAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-
-                const SizedBox(height: 12),
-                // Item 2: Bookmark
-                _buildMenuItem(
-                  icon: Icons.bookmark_border_rounded,
-                  label: 'Simpan ke Markah',
-                  color: _kPurpleColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-
-                const SizedBox(height: 12),
-
-                // Item 3: Share
-                _buildMenuItem(
-                  icon: Icons.share_rounded,
-                  label: 'Bagikan Tulisan',
-                  color: Colors.blueAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // Widget Item Menu Modern
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _kTextColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildModernBlogCard(
     Map<String, dynamic> blog,
     TextTheme textTheme,
     Color primaryColor,
   ) {
-    final blogIndex = _blogs.indexOf(blog);
     final isLiked = blog['is_liked'] ?? false; // Read from API data
     final isBookmarked = blog['is_bookmarked'] ?? false; // Read from API data
 
@@ -415,9 +300,7 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
           onTap: () {
             Navigator.push(
               context,
@@ -426,12 +309,16 @@ class _HomePageState extends State<HomePage> {
                   postId: blog['id'],
                 ),
               ),
-            );
+            ).then((result) {
+              if (result == true) {
+                _loadBlogs();
+              }
+            });
           },
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
@@ -622,16 +509,6 @@ class _HomePageState extends State<HomePage> {
                               color: isBookmarked
                                   ? _kPurpleColor
                                   : _kSubTextColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // TITIK TIGA - MEMANGGIL MENU BARU
-                          GestureDetector(
-                            onTap: () => _showBlogMenu(context, blog),
-                            child: const Icon(
-                              Icons.more_horiz,
-                              size: 20,
-                              color: _kSubTextColor,
                             ),
                           ),
                         ],

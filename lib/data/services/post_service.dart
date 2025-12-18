@@ -390,4 +390,30 @@ class PostService {
     final result = await toggleBookmark(postId);
     return result['success'] == true;
   }
+
+  // Tambahkan fungsi ini di dalam class PostService
+Future<Map<String, dynamic>> updateStatus(int id, String status) async {
+  final token = await _getToken();
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/posts/$id/status'), // Mengarah ke PostController@updateStatus
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'status': status}),
+    );
+
+    if (response.statusCode == 200) {
+      return {
+        'success': true,
+        'data': jsonDecode(response.body)['data'],
+      };
+    }
+    return {'success': false, 'message': 'Gagal mengubah status'};
+  } catch (e) {
+    return {'success': false, 'message': 'Error: $e'};
+  }
+}
 }

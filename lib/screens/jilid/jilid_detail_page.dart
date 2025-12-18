@@ -1,4 +1,4 @@
-import 'dart:io'; // Tambahkan ini di baris paling atas
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../data/services/series_service.dart';
 import '../main/blog_page.dart';
@@ -47,6 +47,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
           final List<dynamic> rawLembar = data['posts'] ?? [];
           _lembarList = rawLembar
               .map((e) => Map<String, dynamic>.from(e))
+              .where((e) => e['status'] == 'published')
               .toList();
           _isLoading = false;
         });
@@ -135,43 +136,51 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
   }
 
   String _formatDate(String? dateString) {
-    if (dateString == null) return 'Baru saja';
+    if (dateString == null || dateString.isEmpty) return 'Baru saja';
     try {
       final date = DateTime.parse(dateString);
-      return '${date.day}/${date.month}/${date.year}';
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          if (difference.inMinutes == 0) {
+            return 'Baru saja';
+          }
+          return '${difference.inMinutes} mnt lalu';
+        }
+        return '${difference.inHours} jam lalu';
+      } else if (difference.inDays == 1) {
+        return 'Kemarin';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} hari lalu';
+      } else if (difference.inDays < 30) {
+        final weeks = (difference.inDays / 7).floor();
+        return '${weeks} minggu lalu';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
     } catch (e) {
       return 'Baru saja';
     }
   }
 
-  // Update fungsi ini di dalam class _JilidDetailPageState
-  
+  // === FUNGSI PINTAR: DETEKSI TIPE GAMBAR ===
   ImageProvider _getSmartImage(String? path, String defaultAsset) {
     if (path == null || path.isEmpty) {
       return AssetImage(defaultAsset);
     }
-    
-    // 1. Jika sudah URL lengkap (dari PostResource atau upload external)
     if (path.startsWith('http')) {
       return NetworkImage(path);
     }
-    
-    // 2. Jika Asset aplikasi
     if (path.startsWith('assets/')) {
       return AssetImage(path);
     }
-
-    // 3. [PERBAIKAN] Jika File Lokal (Biasanya path absolut diawali dengan '/')
-    // Path file di Android/iOS selalu dimulai dengan '/' (contoh: /data/user/...)
-    if (path.startsWith('/')) {
+    // Check if it's a local file path
+    if (path.startsWith('/') || path.contains(':\\')) {
       return FileImage(File(path));
     }
-
-    // 4. [TAMBAHAN] Jika sampai sini, berarti ini Raw Path dari Database (thumbnails/...)
-    // Kita harus menyusunnya menjadi URL lengkap manual.
-    // Sesuaikan IP ini dengan konfigurasi Anda (10.0.2.2 untuk Emulator)
-    const String storageBaseUrl = 'http://10.0.2.2:8000/storage/';
-    return NetworkImage('$storageBaseUrl$path');
+    return AssetImage(defaultAsset);
   }
 
   @override
@@ -350,6 +359,11 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
     Map<String, dynamic> lembar,
     TextTheme textTheme,
   ) {
+    final author = lembar['author'] ?? {};
+    final stats = lembar['stats'] ?? {};
+    final String defaultAvatar = 'assets/images/ava_default.jpg';
+    final String defaultThumb = 'assets/images/thumb_default.jpg';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -392,14 +406,15 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                           CircleAvatar(
                             radius: 8,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: const AssetImage(
-                              'assets/images/ava_default.jpg',
+                            backgroundImage: _getSmartImage(
+                              author['avatar_url'],
+                              defaultAvatar,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              lembar['authorName'] ?? 'Pengguna',
+                              author['name'] ?? 'Pengguna',
                               style: textTheme.labelSmall?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: _kTextColor,
@@ -409,7 +424,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                           ),
                           Text(
                             _formatDate(
-                              lembar['publishedAt'] ?? lembar['date'],
+                              lembar['published_at'] ?? lembar['date'],
                             ),
                             style: textTheme.labelSmall?.copyWith(
                               color: _kSubTextColor,
@@ -444,13 +459,13 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                       Row(
                         children: [
                           Icon(
-                            Icons.thumb_up_alt_outlined,
+                            Icons.favorite_border_rounded,
                             size: 14,
                             color: _kSubTextColor,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            lembar['likes'] ?? '0',
+                            stats['likes']?.toString() ?? '0',
                             style: TextStyle(
                               fontSize: 11,
                               color: _kSubTextColor,
@@ -464,7 +479,7 @@ class _JilidDetailPageState extends State<JilidDetailPage> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            lembar['comments'] ?? '0',
+                            stats['comments']?.toString() ?? '0',
                             style: TextStyle(
                               fontSize: 11,
                               color: _kSubTextColor,

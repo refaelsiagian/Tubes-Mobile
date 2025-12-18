@@ -12,9 +12,18 @@ const Color _kBackgroundColor = Color.fromARGB(255, 255, 255, 255);
 const Color _kSubTextColor = Color(0xFF757575);
 
 class AuthorProfilePage extends StatefulWidget {
-  final int userId; // ID Penulis yang dilihat
+  final int userId; 
+  final String? initialName;
+  final String? initialUsername;
+  final String? initialAvatarUrl;
 
-  const AuthorProfilePage({super.key, required this.userId});
+  const AuthorProfilePage({
+    super.key, 
+    required this.userId,
+    this.initialName,
+    this.initialUsername,
+    this.initialAvatarUrl,
+  });
 
   @override
   State<AuthorProfilePage> createState() => _AuthorProfilePageState();
@@ -27,6 +36,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
   // Data Author
   String _userName = '';
   String _currentUsername = '';
+  String _rawUsername = '';
   String _userBio = '';
   String? _bannerImagePath;
   String? _profileImagePath;
@@ -45,9 +55,9 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
   // List Data
   List<Map<String, dynamic>> _stories = [];
   List<Map<String, dynamic>> _jilid = [];
-  List<Map<String, dynamic>> _likedBlogs = []; // Data untuk tab Disukai
+  List<Map<String, dynamic>> _likedBlogs = []; 
   
-  bool _isLoading = true;
+  bool _isContentLoading = true; 
 
   final _postService = PostService();
   final _seriesService = SeriesService();
@@ -57,36 +67,64 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this); 
+    
+    _userName = widget.initialName ?? 'Penulis';
+    _rawUsername = widget.initialUsername ?? '';
+    _currentUsername = widget.initialUsername ?? '';
+    _profileImagePath = widget.initialAvatarUrl;
+    
     _loadAuthorData();
   }
 
   Future<void> _loadAuthorData() async {
-    setState(() => _isLoading = true);
+    setState(() => _isContentLoading = true);
 
     try {
-      // 1. Ambil Postingan User
-      final posts = await _postService.getPosts(userId: widget.userId);
-      
-      // 2. Ambil Jilid User
-      final jilid = await _seriesService.getSeries(userId: widget.userId);
+      // 1. Ambil Data Profil Dasar (Selalu ada, meskipun post kosong)
+      // Kita jalankan secara paralel agar lebih cepat
+      final results = await Future.wait([
+        _authService.getUserProfileById(widget.userId),
+        _postService.getPosts(userId: widget.userId),
+        _seriesService.getSeries(userId: widget.userId),
+      ]);
 
-      // 3. Ambil Liked Posts (List kosong dulu biar aman)
+      final profileResult = results[0] as Map<String, dynamic>;
+      final posts = results[1] as List<Map<String, dynamic>>;
+      final jilid = results[2] as List<Map<String, dynamic>>;
       final liked = []; 
 
       if (mounted) {
         setState(() {
-          if (posts.isNotEmpty) {
-            final author = posts[0]['author'];
-            _userName = author['name'] ?? 'Pengguna';
-            _currentUsername = '@${author['username'] ?? 'user'}';
-            _profileImagePath = author['avatar_url'];
+          // Update Profil dari API User (Prioritas Utama)
+          if (profileResult['success']) {
+            final author = profileResult['data'];
+            _userName = author['name'] ?? _userName;
+            _rawUsername = author['username'] ?? _rawUsername;
+            _currentUsername = _rawUsername;
+            _profileImagePath = author['avatar_url'] ?? _profileImagePath;
             _bannerImagePath = author['banner_url'];
             _userBio = author['bio'] ?? 'Penulis di Lembar';
             
             _followers = author['stats']?['followers'] ?? 0;
             _following = author['stats']?['following'] ?? 0;
-          } else {
-            _userName = 'Penulis';
+            _isFollowing = author['is_following'] ?? false;
+          } 
+          // Fallback ke data dari Post jika profile fetch gagal
+          else if (posts.isNotEmpty) {
+            final author = posts[0]['author'];
+            _userName = author['name'] ?? _userName;
+            _rawUsername = author['username'] ?? _rawUsername;
+            _currentUsername = _rawUsername;
+            _profileImagePath = author['avatar_url'] ?? _profileImagePath;
+            _bannerImagePath = author['banner_url'];
+            _userBio = author['bio'] ?? 'Penulis di Lembar';
+            
+            _followers = author['stats']?['followers'] ?? 0;
+            _following = author['stats']?['following'] ?? 0;
+            _isFollowing = author['is_following'] ?? false;
+          }
+
+          if (posts.isEmpty && _userBio.isEmpty) {
             _userBio = 'Belum ada postingan publik.';
           }
 
@@ -111,26 +149,39 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
           }).toList();
 
           _jilid = jilid;
-
-          // Mapping Data Disukai
           _likedBlogs = liked.map((post) => {
-            'id': post['id'],
-            'title': post['title'] ?? 'Untitled',
-            'snippet': post['snippet'] ?? '',
-            'thumbnail': post['thumbnail_url'],
-            'date': _formatDate(post['published_at']),
-            'likes': post['stats']['likes']?.toString() ?? '0',
-            'comments': post['stats']['comments']?.toString() ?? '0',
-            'authorName': post['author']['name'] ?? 'Pengguna',
+            'id': post['id'], 
           }).toList();
 
-          _isLoading = false;
+          _isContentLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isContentLoading = false);
         debugPrint("Error loading profile: $e");
+      }
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_rawUsername.isEmpty) return;
+    
+    // Optimistic UI update
+    setState(() => _isFollowing = !_isFollowing);
+
+    final result = await _authService.toggleFollow(_rawUsername);
+
+    if (mounted) {
+      if (!result['success']) {
+        // Revert if failed
+        setState(() => _isFollowing = !_isFollowing);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      } else {
+        // Refresh data to get latest stats
+        _loadAuthorData();
       }
     }
   }
@@ -157,9 +208,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : NestedScrollView(
+      body: NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               SliverToBoxAdapter(
@@ -195,19 +244,21 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
               ),
             ];
           },
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildStoriesTab(textTheme),
-              _buildJilidTab(textTheme),
-              _buildLikesTab(textTheme), 
-            ],
-          ),
+          body: _isContentLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildStoriesTab(textTheme),
+                  _buildJilidTab(textTheme),
+                  _buildLikesTab(textTheme), 
+                ],
+              ),
         ),
     );
   }
 
-  // === BAGIAN INI YANG DIUBAH (TOMBOL KECIL) ===
+
   Widget _buildModernProfileHeader(BuildContext context, TextTheme textTheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,22 +310,20 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
               ),
             ),
 
-            // === TOMBOL FOLLOW (UKURAN DIPERKECIL) ===
+            // TOMBOL FOLLOW
             Positioned(
-              bottom: -17, // Naik dikit biar pas tengah garis
+              bottom: -17,
               right: 24,
               child: SizedBox(
-                height: 34, // Height dikecilin dari 40 jadi 34
+                height: 34,
                 child: ElevatedButton(
-                  onPressed: () {
-                    setState(() => _isFollowing = !_isFollowing);
-                  },
+                  onPressed: _toggleFollow,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isFollowing ? Colors.white : _kPurpleColor,
                     foregroundColor: _isFollowing ? _kTextColor : Colors.white,
                     elevation: _isFollowing ? 1 : 3,
                     shadowColor: _kPurpleColor.withOpacity(0.4),
-                    padding: const EdgeInsets.symmetric(horizontal: 16), // Padding samping dikecilin
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     side: _isFollowing ? BorderSide(color: Colors.grey.shade300, width: 1) : null,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
@@ -285,7 +334,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
                     children: [
                       Icon(
                         _isFollowing ? Icons.check : Icons.add,
-                        size: 16, // Icon dikecilin
+                        size: 16,
                         color: _isFollowing ? Colors.green : Colors.white,
                       ),
                       const SizedBox(width: 6),
@@ -293,7 +342,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
                         _isFollowing ? 'Mengikuti' : 'Ikuti',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 12, // Font dikecilin
+                          fontSize: 12,
                           color: _isFollowing ? _kTextColor : Colors.white,
                         ),
                       ),
@@ -306,7 +355,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
         ),
         const SizedBox(height: 40),
         
-        // === INFO USER ===
+        // INFO USER
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
@@ -320,7 +369,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
                 ),
               ),
               Text(
-                _currentUsername, 
+                '@$_currentUsername', 
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: _kSubTextColor,
@@ -329,7 +378,6 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
               ),
               const SizedBox(height: 12),
               
-              // STATS
               Row(
                 children: [
                   _buildStatItem(_followers.toString(), 'Pengikut'),
@@ -337,7 +385,6 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
                   _buildStatItem(_following.toString(), 'Mengikuti'),
                   const SizedBox(width: 16),
                   
-                  // BADGE KARYA (Disesuaikan dikit biar imbang sama tombol kecil)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
@@ -384,7 +431,6 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
     );
   }
 
-  // === TAB 1: LEMBAR ===
   Widget _buildStoriesTab(TextTheme textTheme) {
     if (_stories.isEmpty) {
       return const Center(
@@ -406,7 +452,6 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
     );
   }
 
-  // === TAB 2: JILID ===
   Widget _buildJilidTab(TextTheme textTheme) {
     if (_jilid.isEmpty) {
       return const Center(child: Text('Belum ada Jilid', style: TextStyle(color: _kSubTextColor)));
@@ -420,7 +465,6 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
     );
   }
 
-  // === TAB 3: DISUKAI (NEW) ===
   Widget _buildLikesTab(TextTheme textTheme) {
     if (_likedBlogs.isEmpty) {
       return const Center(
@@ -439,7 +483,6 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
     );
   }
 
-  // === UI COMPONENTS ===
   Widget _buildModernContentCard(Map<String, dynamic> item, TextTheme textTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -467,7 +510,11 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
                   postId: int.tryParse(item['id'].toString()) ?? 0,
                 ),
               ),
-            );
+            ).then((result) {
+              if (result == true) {
+                _loadAuthorData();
+              }
+            });
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -572,7 +619,7 @@ class _AuthorProfilePageState extends State<AuthorProfilePage>
   }
 
   Widget _buildModernJilidCard(Map<String, dynamic> jilid, TextTheme textTheme) {
-    return Container(
+     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,

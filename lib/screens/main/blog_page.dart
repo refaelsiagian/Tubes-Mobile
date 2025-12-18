@@ -68,6 +68,7 @@ class _BlogPageState extends State<BlogPage> {
         _post = result['data'];
         _isLiked = _post?['is_liked'] ?? false;
         _isBookmarked = _post?['is_bookmarked'] ?? false;
+        _isFollowing = _post?['author']?['is_following'] ?? false;
         _loadContent(_post?['content']);
       });
     }
@@ -149,6 +150,26 @@ class _BlogPageState extends State<BlogPage> {
       );
     } else {
       _loadPostDetails(); 
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    final username = _post?['author']?['username'];
+    if (username == null) return;
+
+    setState(() => _isFollowing = !_isFollowing);
+
+    final result = await _authService.toggleFollow(username);
+
+    if (mounted) {
+      if (!result['success']) {
+        setState(() => _isFollowing = !_isFollowing);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'])),
+        );
+      } else {
+        _loadPostDetails();
+      }
     }
   }
 
@@ -351,32 +372,30 @@ class _BlogPageState extends State<BlogPage> {
   }
 
   // --- UPDATED: Fungsi Ubah Status (Pengganti _changeVisibility) ---
-  Future<void> _updateStatus(String newStatus) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Mengubah status ke ${newStatus == 'published' ? 'Terbit' : 'Draft'}...'), duration: const Duration(seconds: 1)),
-    );
+// Di blog_page.dart, ganti fungsi _updateStatus lama dengan ini:
+Future<void> _updateStatus(String newStatus) async {
+  // Gunakan fungsi updateStatus yang baru dibuat, bukan updatePost
+  final result = await _postService.updateStatus(
+    widget.postId,
+    newStatus,
+  );
 
-    // Panggil updatePost dengan parameter Nullable (id, null, null, status)
-    final result = await _postService.updatePost(
-      widget.postId,
-      null, // Title tidak berubah
-      null, // Content tidak berubah
-      newStatus, // Status berubah
-    );
-
-    if (mounted) {
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Berhasil diubah ke ${newStatus == 'published' ? 'Terbit' : 'Draft'}')),
-        );
-        _loadPostDetails(); // Refresh data
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Gagal mengubah status')),
-        );
-      }
+  if (mounted) {
+    if (result['success']) {
+      setState(() {
+        _post = result['data']; // Update data lokal dengan respon terbaru
+      });
+      _loadPostDetails(); // Refresh detail untuk memastikan sinkronisasi
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Berhasil diubah ke $newStatus')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Gagal mengubah status')),
+      );
     }
   }
+}
 
   void _confirmDelete() {
     showDialog(
@@ -391,14 +410,14 @@ class _BlogPageState extends State<BlogPage> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              final result = await _postService.deletePost(widget.postId);
+              Navigator.pop(context); // Tutup dialog
+              final success = await _postService.deletePost(widget.postId);
               if (mounted) {
-                if (result) {
-                  Navigator.pop(context); // Close BlogPage
+                if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Lembar berhasil dihapus')),
                   );
+                  Navigator.pop(context, true); // Kembali dengan hasil true untuk refresh
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Gagal menghapus lembar')),
@@ -461,7 +480,7 @@ class _BlogPageState extends State<BlogPage> {
               color: _isBookmarked ? _kPurpleColor : _kTextColor,
               size: 22,
             ),
-            onPressed: () => setState(() => _isBookmarked = !_isBookmarked),
+            onPressed: _toggleBookmark,
           ),
           if (_post != null && _currentUser != null && _post!['author']['id'] == _currentUser!['id'])
             IconButton(
@@ -527,7 +546,7 @@ class _BlogPageState extends State<BlogPage> {
                         }
                         
                         return GestureDetector(
-                          onTap: () => setState(() => _isFollowing = !_isFollowing),
+                          onTap: _toggleFollow,
                           child: Text(
                             _isFollowing ? 'Mengikuti' : 'Ikuti',
                             style: const TextStyle(
@@ -748,17 +767,6 @@ class _BlogPageState extends State<BlogPage> {
                         comment['content'] ?? '',
                         style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF333333)),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.favorite_border, size: 14, color: _kSubTextColor),
-                          const SizedBox(width: 16),
-                          Text(
-                            "Balas",
-                            style: const TextStyle(fontSize: 11, color: _kSubTextColor),
-                          ),
-                        ],
-                      ),
                       const SizedBox(height: 12),
                       if (index != _comments.length - 1)
                         Divider(height: 1, color: Colors.grey.shade100),
@@ -828,25 +836,6 @@ class _BlogPageState extends State<BlogPage> {
                       ),
                     ),
                   ],
-                ),
-              ),
-
-              const Spacer(),
-
-              // Tombol Share
-              const Icon(
-                Icons.share_outlined,
-                color: _kSubTextColor,
-                size: 20,
-              ),
-              const SizedBox(width: 10), 
-              // Tombol Bookmark
-              GestureDetector(
-                 onTap: _toggleBookmark,
-                 child: Icon(
-                  _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: _isBookmarked ? _kPurpleColor : _kSubTextColor,
-                  size: 22,
                 ),
               ),
             ],

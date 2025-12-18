@@ -55,6 +55,7 @@ class _SelectLembarPageState extends State<SelectLembarPage> {
     final posts = await postService.getPosts(userId: userId);
 
     _allLembar = posts
+        .where((post) => post['status'] == 'published')
         .map(
           (post) => {
             'id': post['id'].toString(),

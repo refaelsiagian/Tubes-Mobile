@@ -118,116 +118,7 @@ class _MarkahPageState extends State<MarkahPage> {
     }
   }
 
-  void _showMarkahMenu(BuildContext context, Map<String, dynamic> blog) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                _buildMenuItem(
-                  icon: Icons.share_rounded,
-                  label: 'Bagikan Tulisan',
-                  color: Colors.blueAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildMenuItem(
-                  icon: Icons.bookmark_remove_rounded,
-                  label: 'Hapus dari Markah',
-                  color: Colors.redAccent,
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final postService = PostService();
-                    final success = await postService.removeBookmark(
-                      blog['id'],
-                    );
 
-                    if (success) {
-                      setState(() {
-                        _bookmarkedBlogsList.remove(blog);
-                      });
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Markah dihapus"),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _kTextColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -349,7 +240,11 @@ class _MarkahPageState extends State<MarkahPage> {
                 builder: (context) =>
                     BlogPage(postId: int.tryParse(blog['id'].toString()) ?? 0),
               ),
-            );
+            ).then((result) {
+              if (result == true) {
+                _loadBookmarkedBlogs(); // Refresh if deleted
+              }
+            });
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -527,15 +422,6 @@ class _MarkahPageState extends State<MarkahPage> {
                             ),
                           ),
 
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: () => _showMarkahMenu(context, blog),
-                            child: const Icon(
-                              Icons.more_horiz_rounded,
-                              size: 20,
-                              color: _kSubTextColor,
-                            ),
-                          ),
                         ],
                       ),
                     ],

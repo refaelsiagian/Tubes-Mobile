@@ -101,7 +101,7 @@ class _ProfilePageState extends State<ProfilePage>
                 .join()
                 .toUpperCase();
           }
-          _currentUsername = '@${data['username']}';
+          _currentUsername = data['username'] ?? '';
           _userBio = data['bio'] ?? 'Belum ada bio';
           _profileImagePath = data['avatar_url'];
           _bannerImagePath = data['banner_url'];
@@ -291,87 +291,6 @@ class _ProfilePageState extends State<ProfilePage>
     return FileImage(File(path));
   }
 
-  // Ganti _showStoryOptionMenu dengan ini:
-  void _showStoryOptionMenu(BuildContext context, Map<String, dynamic> story) {
-    final status = story['status'] ?? 'published'; // Cek status
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ... (Garis indikator sama)
-
-                // 1. Opsi Edit (Selalu ada)
-                _buildMenuItem(
-                  icon: Icons.edit_outlined,
-                  label: 'Edit Lembar', // Masuk ke editor
-                  color: _kTextColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditLembarPage(
-                          postId: int.tryParse(story['id'].toString()) ?? 0,
-                        ),
-                      ),
-                    ).then((_) => _refreshData());
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // 2. Opsi Ubah Status (Toggle)
-                if (status == 'draft')
-                  _buildMenuItem(
-                    icon: Icons.send_rounded, // Ikon publish
-                    label: 'Publikasi Sekarang',
-                    color: Colors.green,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _updatePostStatus(
-                        story,
-                        'published',
-                      ); // Panggil fungsi baru
-                    },
-                  )
-                else // Jika published
-                  _buildMenuItem(
-                    icon: Icons.archive_outlined, // Ikon tarik ke draft
-                    label: 'Kembalikan ke Draft',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _updatePostStatus(story, 'draft'); // Panggil fungsi baru
-                    },
-                  ),
-
-                const SizedBox(height: 12),
-
-                // 3. Opsi Hapus (Selalu ada)
-                _buildMenuItem(
-                  icon: Icons.delete_outline_rounded,
-                  label: 'Hapus Cerita',
-                  color: Colors.redAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _confirmDeleteStory(story);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   // Buat fungsi baru untuk handle perubahan status
   Future<void> _updatePostStatus(
@@ -415,64 +334,6 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  void _showLikedOptionMenu(BuildContext context, Map<String, dynamic> blog) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                _buildMenuItem(
-                  icon: Icons.share_rounded,
-                  label: 'Bagikan',
-                  color: Colors.blueAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildMenuItem(
-                  icon: Icons.favorite_border_rounded,
-                  label: 'Hapus dari Disukai',
-                  color: Colors.redAccent,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _likedBlogs.remove(blog);
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Dihapus dari daftar suka"),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Future<void> _confirmDeleteStory(Map<String, dynamic> story) async {
     final bool? confirm = await showDialog<bool>(
@@ -638,10 +499,10 @@ class _ProfilePageState extends State<ProfilePage>
     if (result != null && result is Map<String, dynamic>) {
       setState(() {
         _userName = result['name'] ?? _userName;
-        final newUsername = result['username'] ?? _currentUsername;
-        _currentUsername = newUsername.startsWith('@')
-            ? newUsername
-            : '@$newUsername';
+        _currentUsername = result['username'] ?? _currentUsername;
+        if (_currentUsername.startsWith('@')) {
+          _currentUsername = _currentUsername.substring(1);
+        }
         _userBio = result['bio'] ?? _userBio;
         _userId = result['id']; // Save ID
         if (result['profilePath'] != null)
@@ -841,7 +702,7 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
               ),
               Text(
-                _currentUsername,
+                '@$_currentUsername',
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: _kSubTextColor,
@@ -988,7 +849,6 @@ class _ProfilePageState extends State<ProfilePage>
                 (story) => _buildModernContentCard(
                   story,
                   textTheme,
-                  onMenuTap: () => _showStoryOptionMenu(context, story),
                   isLikedTab: false,
 
                   // --- PERBAIKAN: KIRIM DATA LIKE ---
@@ -1077,7 +937,6 @@ class _ProfilePageState extends State<ProfilePage>
         return _buildModernContentCard(
           blog,
           textTheme,
-          onMenuTap: () => _showLikedOptionMenu(context, blog),
           isLikedTab: true,
 
           // --- HAPUS BARIS YANG SALAH TADI, GANTI JADI INI: ---
@@ -1170,7 +1029,6 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildModernContentCard(
     Map<String, dynamic> item,
     TextTheme textTheme, {
-    required VoidCallback onMenuTap,
     bool isLikedTab = false,
 
     // --- [BARU] Tambahan Parameter ---
@@ -1214,7 +1072,11 @@ class _ProfilePageState extends State<ProfilePage>
                 builder: (context) =>
                     BlogPage(postId: int.tryParse(item['id'].toString()) ?? 0),
               ),
-            );
+            ).then((result) {
+              if (result == true) {
+                _loadStories(); // Refresh if deleted
+              }
+            });
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -1381,16 +1243,6 @@ class _ProfilePageState extends State<ProfilePage>
                               color: isBookmarked
                                   ? _kPurpleColor
                                   : _kSubTextColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // -----------------------------------------
-                          GestureDetector(
-                            onTap: onMenuTap,
-                            child: const Icon(
-                              Icons.more_horiz,
-                              size: 20,
-                              color: _kSubTextColor,
                             ),
                           ),
                         ],
