@@ -4,7 +4,6 @@ import 'blog_page.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/expandable_fab.dart';
 import '../../core/utils/navigation_helper.dart';
-import '../../core/utils/navigation_helper.dart';
 import '../../data/services/post_service.dart';
 
 // Konstanta Warna Modern
@@ -320,11 +319,51 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 12),
                 // Item 2: Bookmark
                 _buildMenuItem(
-                  icon: Icons.bookmark_border_rounded,
-                  label: 'Simpan ke Markah',
+                  icon: (blog['is_bookmarked'] ?? false) 
+                      ? Icons.bookmark_remove_rounded 
+                      : Icons.bookmark_add_rounded,
+                  label: (blog['is_bookmarked'] ?? false) 
+                      ? 'Hapus dari Markah' 
+                      : 'Simpan ke Markah',
                   color: _kPurpleColor,
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
+                    
+                    final isBookmarked = blog['is_bookmarked'] ?? false;
+                    final postId = blog['id'];
+
+                    // Optimistic update
+                    setState(() {
+                      blog['is_bookmarked'] = !isBookmarked;
+                    });
+
+                    bool success;
+                    if (!isBookmarked) {
+                      success = await _postService.addBookmark(postId);
+                    } else {
+                      success = await _postService.removeBookmark(postId);
+                    }
+
+                    if (!success) {
+                      // Revert on failure
+                      setState(() {
+                        blog['is_bookmarked'] = isBookmarked;
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Gagal mengubah markah')),
+                        );
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(!isBookmarked ? 'Ditambahkan ke Markah' : 'Dihapus dari Markah'),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
 
@@ -396,7 +435,6 @@ class _HomePageState extends State<HomePage> {
     TextTheme textTheme,
     Color primaryColor,
   ) {
-    final blogIndex = _blogs.indexOf(blog);
     final isLiked = blog['is_liked'] ?? false; // Read from API data
     final isBookmarked = blog['is_bookmarked'] ?? false; // Read from API data
 

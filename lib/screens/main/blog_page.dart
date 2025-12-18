@@ -1,225 +1,92 @@
-import 'dart:io'; 
-import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import '../../data/services/post_service.dart';
 import '../../data/services/auth_service.dart';
 import '../lembar/edit_lembar.dart';
 
-// Warna-warna konstanta
 const Color _kTextColor = Color(0xFF1A1A1A);
 const Color _kPurpleColor = Color(0xFF8D07C6);
-const Color _kBackgroundColor = Color(0xFFFFFFFF);
+const Color _kBackgroundColor = Colors.white;
 const Color _kSubTextColor = Color(0xFF757575);
-const Color _kLikeColor = Color(0xFFFF4081);
 
 class BlogPage extends StatefulWidget {
   final int postId;
 
-  const BlogPage({super.key, required this.postId});
+  const BlogPage({
+    super.key,
+    required this.postId,
+  });
 
   @override
   State<BlogPage> createState() => _BlogPageState();
 }
 
 class _BlogPageState extends State<BlogPage> {
-  late quill.QuillController _quillController;
-  final ScrollController _scrollController = ScrollController(); 
-
-  bool _isFollowing = false;
-  bool _isLiked = false;
-  bool _isBookmarked = false;
-
-  final _postService = PostService();
-  final _authService = AuthService();
-  
-  Map<String, dynamic>? _post;
-  List<Map<String, dynamic>> _comments = [];
-  Map<String, dynamic>? _currentUser; // Add current user
-  bool _isLoading = true;
+  final PostService _postService = PostService();
+  final AuthService _authService = AuthService();
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _commentController = TextEditingController();
 
-  // Asset Default
+  Map<String, dynamic>? _post;
+  Map<String, dynamic>? _currentUser;
+  bool _isLoading = true;
+  bool _isLiked = false;
+  bool _isBookmarked = false;
+  bool _isFollowing = false;
+  late quill.QuillController _quillController;
+
   final String _defaultAvatar = 'assets/images/ava_default.jpg';
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    await Future.wait([
-      _loadPostDetails(),
-      _loadComments(),
-      _loadCurrentUser(), // Load current user
-    ]);
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _loadPostDetails() async {
-    final result = await _postService.getPost(widget.postId);
-    if (result['success'] && mounted) {
-      setState(() {
-        _post = result['data'];
-        _isLiked = _post?['is_liked'] ?? false;
-        _isBookmarked = _post?['is_bookmarked'] ?? false;
-        _loadContent(_post?['content']);
-      });
-    }
-  }
-
-  Future<void> _loadComments() async {
-    final result = await _postService.getComments(widget.postId);
-    if (result['success'] && mounted) {
-      setState(() {
-        _comments = List<Map<String, dynamic>>.from(result['data']);
-      });
-    }
+    _quillController = quill.QuillController.basic();
+    _loadPostDetails();
+    _loadCurrentUser();
   }
 
   Future<void> _loadCurrentUser() async {
     final result = await _authService.getProfile();
-    if (result['success'] && mounted) {
+    if (result['success']) {
       setState(() {
         _currentUser = result['data'];
       });
     }
   }
 
-  Future<void> _submitComment() async {
-    if (_commentController.text.trim().isEmpty) return;
+  Future<void> _loadPostDetails() async {
+    setState(() => _isLoading = true);
+    final result = await _postService.getPost(widget.postId);
 
-    final content = _commentController.text.trim();
-    _commentController.clear();
-    FocusScope.of(context).unfocus();
-
-    final result = await _postService.postComment(widget.postId, content);
-    
-    if (mounted) {
-      if (result['success']) {
-        _loadComments();
-        _loadPostDetails(); // Refresh stats
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'])),
-        );
-      }
-    }
-  }
-
-  Future<void> _toggleLike() async {
-    setState(() => _isLiked = !_isLiked); // Optimistic update
-    
-    final result = await _postService.toggleLike(widget.postId);
-    
-    if (!result['success'] && mounted) {
-      setState(() => _isLiked = !_isLiked); // Revert if failed
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'])),
-      );
+    if (result['success']) {
+      setState(() {
+        _post = result['data'];
+        _isLiked = _post?['is_liked'] ?? false;
+        _isBookmarked = _post?['is_bookmarked'] ?? false;
+        _isLoading = false;
+      });
+      _setupQuillController();
     } else {
-      _loadPostDetails(); // Refresh stats
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _toggleBookmark() async {
-    setState(() => _isBookmarked = !_isBookmarked); // Optimistic update
-    
-    bool success;
-    if (_isBookmarked) {
-      success = await _postService.addBookmark(widget.postId);
-    } else {
-      success = await _postService.removeBookmark(widget.postId);
-    }
-    
-    if (!success && mounted) {
-      setState(() => _isBookmarked = !_isBookmarked); // Revert if failed
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal mengubah markah')),
-      );
-    }
-  }
-
-  String _formatDate(String? dateString) {
-    if (dateString == null || dateString.isEmpty) return 'Baru saja';
-    try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-
-      if (difference.inDays == 0) {
-        if (difference.inHours == 0) {
-          if (difference.inMinutes == 0) {
-            return 'Baru saja';
-          }
-          return '${difference.inMinutes}m lalu';
-        }
-        return '${difference.inHours}j lalu';
-      } else if (difference.inDays == 1) {
-        return 'Kemarin';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays}h lalu';
-      } else if (difference.inDays < 30) {
-        final weeks = (difference.inDays / 7).floor();
-        return '${weeks}w lalu';
-      } else {
-        return '${date.day}/${date.month}/${date.year}';
-      }
-    } catch (e) {
-      return 'Baru saja';
-    }
-  }
-
-  ImageProvider _getSmartImage(String? path, String defaultAsset) {
-    if (path == null || path.isEmpty) {
-      return AssetImage(defaultAsset);
-    }
-    if (path.startsWith('http')) {
-      return NetworkImage(path);
-    }
-    if (path.startsWith('assets/')) {
-      return AssetImage(path);
-    }
-    return FileImage(File(path));
-  }
-
-  void _loadContent(dynamic content) {
-    try {
-      var contentData = content;
-
-      if (contentData == null) {
-        _quillController = quill.QuillController.basic();
-        return;
-      }
-
-      if (contentData is String) {
-        try {
-          final json = jsonDecode(contentData);
-          _quillController = quill.QuillController(
-            document: quill.Document.fromJson(json),
-            selection: const TextSelection.collapsed(offset: 0),
-            readOnly: true,
-          );
-        } catch (e) {
-          final doc = quill.Document()..insert(0, contentData);
-          _quillController = quill.QuillController(
-            document: doc,
-            selection: const TextSelection.collapsed(offset: 0),
-            readOnly: true,
-          );
-        }
-      } else if (contentData is List) {
+  void _setupQuillController() {
+    final content = _post?['content'];
+    if (content != null) {
+      try {
+        // Content is already a JSON string from PostService
         _quillController = quill.QuillController(
-          document: quill.Document.fromJson(contentData.cast<dynamic>()),
+          document: quill.Document.fromJson(content),
           selection: const TextSelection.collapsed(offset: 0),
           readOnly: true,
         );
-      } else {
+      } catch (e) {
+        debugPrint('Error parsing quill content: $e');
         _quillController = quill.QuillController.basic();
       }
-    } catch (e) {
+    } else {
       _quillController = quill.QuillController.basic();
     }
   }
@@ -430,7 +297,7 @@ class _BlogPageState extends State<BlogPage> {
               color: _isBookmarked ? _kPurpleColor : _kTextColor,
               size: 22,
             ),
-            onPressed: () => setState(() => _isBookmarked = !_isBookmarked),
+            onPressed: _toggleBookmark,
           ),
           if (_post != null && _currentUser != null && _post!['author']['id'] == _currentUser!['id'])
             IconButton(
@@ -636,20 +503,47 @@ class _BlogPageState extends State<BlogPage> {
                       style: const TextStyle(fontSize: 14),
                       maxLines: null,
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _submitComment,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: Colors.grey.shade100,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            _commentController.clear();
+                          },
+                          child: const Text('Batal', style: TextStyle(color: Colors.grey, fontSize: 12)),
                         ),
-                        child: const Text("Kirim", style: TextStyle(fontSize: 11, color: _kPurpleColor)),
-                      ),
-                    )
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            if (_commentController.text.trim().isEmpty) return;
+                            
+                            final result = await _postService.postComment(widget.postId, _commentController.text.trim());
+                            if (mounted) {
+                              if (result['success']) {
+                                _commentController.clear();
+                                _loadPostDetails(); // Refresh to show new comment
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Komentar berhasil dikirim')),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Gagal mengirim komentar')),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _kPurpleColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                            minimumSize: const Size(0, 32),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Kirim', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -658,16 +552,16 @@ class _BlogPageState extends State<BlogPage> {
             const SizedBox(height: 24),
 
             // LIST KOMENTAR
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _comments.length,
-              itemBuilder: (context, index) {
-                final comment = _comments[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 20),
-                  child: Column(
+            if (_post?['comments'] != null)
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: (_post?['comments'] as List).length,
+                separatorBuilder: (context, index) => const Divider(height: 32, color: Color(0xFFF0F0F0)),
+                itemBuilder: (context, index) {
+                  final comment = _post?['comments'][index];
+                  return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -675,158 +569,239 @@ class _BlogPageState extends State<BlogPage> {
                           CircleAvatar(
                             radius: 12,
                             backgroundColor: Colors.grey.shade200,
-                            backgroundImage: _getSmartImage(comment['author']['avatar_url'], _defaultAvatar), // Smart Image
+                            backgroundImage: _getSmartImage(comment['user']['avatar_url'], _defaultAvatar),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            comment['author']['name'] ?? 'Anonim',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            comment['user']['name'] ?? 'Pengguna',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            comment['created_at'] ?? '',
-                            style: const TextStyle(fontSize: 11, color: _kSubTextColor),
+                            _formatDate(comment['created_at']),
+                            style: const TextStyle(color: _kSubTextColor, fontSize: 11),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        comment['content'] ?? '',
-                        style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF333333)),
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.favorite_border, size: 14, color: _kSubTextColor),
-                          const SizedBox(width: 16),
-                          Text(
-                            "Balas",
-                            style: const TextStyle(fontSize: 11, color: _kSubTextColor),
-                          ),
-                        ],
+                      Text(
+                        comment['content'] ?? '',
+                        style: const TextStyle(fontSize: 14, height: 1.5),
                       ),
-                      const SizedBox(height: 12),
-                      if (index != _comments.length - 1)
-                        Divider(height: 1, color: Colors.grey.shade100),
                     ],
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
             
             const SizedBox(height: 80),
           ],
         ),
       ),
-
-      // === BOTTOM NAVIGATION BAR (FIXED) ===
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade100)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
         child: SafeArea(
           child: Row(
             children: [
-              // Tombol Like
+              // Like Button
               GestureDetector(
                 onTap: _toggleLike,
                 child: Row(
                   children: [
                     Icon(
-                      _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: _isLiked ? _kLikeColor : _kSubTextColor,
-                      size: 22,
+                      _isLiked ? Icons.favorite : Icons.favorite_border_rounded,
+                      color: _isLiked ? Colors.red : _kSubTextColor,
+                      size: 24,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       getLikes(),
-                      style: TextStyle(
-                        color: _isLiked ? _kLikeColor : _kSubTextColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(color: _kSubTextColor, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ),
-              
               const SizedBox(width: 24),
-              
-              // Tombol Komentar
+              // Comment Button
               GestureDetector(
                 onTap: _scrollToComments,
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      color: _kSubTextColor,
-                      size: 20,
-                    ),
+                    const Icon(Icons.chat_bubble_outline_rounded, color: _kSubTextColor, size: 22),
                     const SizedBox(width: 6),
                     Text(
                       getCommentsCount(),
-                      style: const TextStyle(
-                        color: _kSubTextColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(color: _kSubTextColor, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ),
-
               const Spacer(),
-
-              // Tombol Share
-              const Icon(
-                Icons.share_outlined,
-                color: _kSubTextColor,
-                size: 20,
-              ),
-              const SizedBox(width: 10), 
-              // Tombol Bookmark
+              // Bookmark Button
               GestureDetector(
-                 onTap: _toggleBookmark,
-                 child: Icon(
-                  _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                onTap: _toggleBookmark,
+                child: Icon(
+                  _isBookmarked ? Icons.bookmark : Icons.bookmark_border_rounded,
                   color: _isBookmarked ? _kPurpleColor : _kSubTextColor,
-                  size: 22,
+                  size: 24,
                 ),
               ),
+              const SizedBox(width: 20),
+              // Share Button
+              const Icon(Icons.share_outlined, color: _kSubTextColor, size: 24),
             ],
           ),
         ),
       ),
     );
   }
+
+  // === HELPER METHODS ===
+
+  ImageProvider _getSmartImage(String? path, String defaultAsset) {
+    if (path == null || path.isEmpty) {
+      return AssetImage(defaultAsset);
+    }
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    }
+    if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    }
+    return FileImage(File(path));
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return 'Baru saja';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          if (difference.inMinutes == 0) return 'Baru saja';
+          return '${difference.inMinutes}m lalu';
+        }
+        return '${difference.inHours}j lalu';
+      } else if (difference.inDays == 1) {
+        return 'Kemarin';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}h lalu';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Baru saja';
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    final originalIsLiked = _isLiked;
+    final currentLikes = int.tryParse(_post?['stats']['likes']?.toString() ?? '0') ?? 0;
+
+    setState(() {
+      _isLiked = !_isLiked;
+      _post?['stats']['likes'] = _isLiked ? currentLikes + 1 : currentLikes - 1;
+    });
+
+    final result = await _postService.toggleLike(widget.postId);
+    if (!result['success']) {
+      setState(() {
+        _isLiked = originalIsLiked;
+        _post?['stats']['likes'] = currentLikes;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Gagal menyukai')),
+        );
+      }
+    } else {
+      // Update with actual count from server
+      if (result['data'] != null && result['data']['new_count'] != null) {
+        setState(() {
+          _post?['stats']['likes'] = result['data']['new_count'];
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleBookmark() async {
+    final originalIsBookmarked = _isBookmarked;
+
+    setState(() {
+      _isBookmarked = !_isBookmarked;
+    });
+
+    bool success;
+    if (!originalIsBookmarked) {
+      success = await _postService.addBookmark(widget.postId);
+    } else {
+      success = await _postService.removeBookmark(widget.postId);
+    }
+
+    if (!success) {
+      setState(() {
+        _isBookmarked = originalIsBookmarked;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal mengubah markah')),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(!originalIsBookmarked ? 'Ditambahkan ke Markah' : 'Dihapus dari Markah'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
+  }
 }
 
-// --- KELAS PEMBANTU UNTUK MERENDER GAMBAR ---
 class ImageEmbedBuilder extends quill.EmbedBuilder {
   @override
   String get key => 'image';
 
   @override
-  Widget build(BuildContext context, quill.EmbedContext embedContext) {
+  Widget build(
+    BuildContext context,
+    quill.EmbedContext embedContext,
+  ) {
     final imageUrl = embedContext.node.value.data;
-    if (imageUrl is String && imageUrl.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Image.file(
-          File(imageUrl),
-          fit: BoxFit.contain,
+    if (imageUrl == null || imageUrl.toString().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl.toString(),
+          fit: BoxFit.cover,
+          width: double.infinity,
           errorBuilder: (context, error, stackTrace) {
             return Container(
               height: 200,
               color: Colors.grey[200],
-              child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+              child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
             );
           },
         ),
-      );
-    }
-    return const SizedBox();
+      ),
+    );
   }
 }

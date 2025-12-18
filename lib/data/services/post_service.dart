@@ -423,4 +423,9 @@ class PostService {
       return false;
     }
   }
+
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
 }

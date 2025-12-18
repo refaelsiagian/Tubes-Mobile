@@ -1,7 +1,9 @@
 import 'dart:io'; // Penting untuk File
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; // Import Cropper
+import '../../data/services/auth_service.dart';
 
 // Konstanta Warna
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -51,6 +53,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _nameController = TextEditingController(text: widget.initialName);
     _usernameController = TextEditingController(text: widget.initialUsername);
     _bioController = TextEditingController(text: widget.initialBio);
+    _initialUsernamePlain = widget.initialUsername;
   }
 
   @override
