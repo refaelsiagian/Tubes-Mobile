@@ -39,11 +39,10 @@ class _BlogPageState extends State<BlogPage> {
   
   Map<String, dynamic>? _post;
   List<Map<String, dynamic>> _comments = [];
-  Map<String, dynamic>? _currentUser; // Add current user
+  Map<String, dynamic>? _currentUser;
   bool _isLoading = true;
   final TextEditingController _commentController = TextEditingController();
 
-  // Asset Default
   final String _defaultAvatar = 'assets/images/ava_default.jpg';
 
   @override
@@ -57,7 +56,7 @@ class _BlogPageState extends State<BlogPage> {
     await Future.wait([
       _loadPostDetails(),
       _loadComments(),
-      _loadCurrentUser(), // Load current user
+      _loadCurrentUser(),
     ]);
     setState(() => _isLoading = false);
   }
@@ -129,7 +128,7 @@ class _BlogPageState extends State<BlogPage> {
     if (mounted) {
       if (result['success']) {
         _loadComments();
-        _loadPostDetails(); // Refresh stats
+        _loadPostDetails(); 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result['message'])),
@@ -139,22 +138,22 @@ class _BlogPageState extends State<BlogPage> {
   }
 
   Future<void> _toggleLike() async {
-    setState(() => _isLiked = !_isLiked); // Optimistic update
+    setState(() => _isLiked = !_isLiked); 
     
     final result = await _postService.toggleLike(widget.postId);
     
     if (!result['success'] && mounted) {
-      setState(() => _isLiked = !_isLiked); // Revert if failed
+      setState(() => _isLiked = !_isLiked); 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['message'])),
       );
     } else {
-      _loadPostDetails(); // Refresh stats
+      _loadPostDetails(); 
     }
   }
 
   Future<void> _toggleBookmark() async {
-    setState(() => _isBookmarked = !_isBookmarked); // Optimistic update
+    setState(() => _isBookmarked = !_isBookmarked); 
     
     bool success;
     if (_isBookmarked) {
@@ -164,7 +163,7 @@ class _BlogPageState extends State<BlogPage> {
     }
     
     if (!success && mounted) {
-      setState(() => _isBookmarked = !_isBookmarked); // Revert if failed
+      setState(() => _isBookmarked = !_isBookmarked); 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gagal mengubah markah')),
       );
@@ -269,8 +268,9 @@ class _BlogPageState extends State<BlogPage> {
     );
   }
 
+  // --- UPDATED: Menu Opsi (Hapus Visibility, Ganti Status) ---
   void _showBlogOptions(BuildContext context) {
-    final currentVisibility = _post?['visibility'] ?? 'Public';
+    final currentStatus = _post?['status'] ?? 'published'; // Pakai status
     
     showModalBottomSheet(
       context: context,
@@ -296,14 +296,13 @@ class _BlogPageState extends State<BlogPage> {
                     ),
                   ),
                 ),
-                // Edit Option
+                // 1. Opsi Edit
                 ListTile(
                   leading: const Icon(Icons.edit_outlined, color: _kTextColor),
                   title: const Text('Edit Lembar', style: TextStyle(fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(context);
-                    // Navigate to EditLembarPage
-                     Navigator.push(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => EditLembarPage(
@@ -314,27 +313,27 @@ class _BlogPageState extends State<BlogPage> {
                   },
                 ),
                 
-                // Visibility Options
-                if (currentVisibility == 'Public')
+                // 2. Opsi Status (Toggle Draft/Published)
+                if (currentStatus == 'draft')
                   ListTile(
-                    leading: const Icon(Icons.lock_outline_rounded, color: Colors.blueAccent),
-                    title: const Text('Ubah ke Private', style: TextStyle(fontWeight: FontWeight.w600)),
+                    leading: const Icon(Icons.send_rounded, color: Colors.green),
+                    title: const Text('Publikasi Sekarang', style: TextStyle(fontWeight: FontWeight.w600)),
                     onTap: () {
                       Navigator.pop(context);
-                      _changeVisibility('private');
+                      _updateStatus('published'); // Ubah status
                     },
                   )
-                else if (currentVisibility == 'Private')
+                else
                   ListTile(
-                    leading: const Icon(Icons.public_rounded, color: Colors.blueAccent),
-                    title: const Text('Ubah ke Public', style: TextStyle(fontWeight: FontWeight.w600)),
+                    leading: const Icon(Icons.archive_outlined, color: Colors.orange),
+                    title: const Text('Kembalikan ke Draft', style: TextStyle(fontWeight: FontWeight.w600)),
                     onTap: () {
                       Navigator.pop(context);
-                      _changeVisibility('public');
+                      _updateStatus('draft'); // Ubah status
                     },
                   ),
 
-                // Delete Option
+                // 3. Opsi Hapus
                 ListTile(
                   leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
                   title: const Text('Hapus Lembar', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.redAccent)),
@@ -351,26 +350,29 @@ class _BlogPageState extends State<BlogPage> {
     );
   }
 
-  Future<void> _changeVisibility(String newVisibility) async {
+  // --- UPDATED: Fungsi Ubah Status (Pengganti _changeVisibility) ---
+  Future<void> _updateStatus(String newStatus) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Mengubah visibility...'), duration: Duration(seconds: 1)),
+      SnackBar(content: Text('Mengubah status ke ${newStatus == 'published' ? 'Terbit' : 'Draft'}...'), duration: const Duration(seconds: 1)),
     );
 
+    // Panggil updatePost dengan parameter Nullable (id, null, null, status)
     final result = await _postService.updatePost(
       widget.postId,
-      '', '', '', // Not changing these
-      visibility: newVisibility,
+      null, // Title tidak berubah
+      null, // Content tidak berubah
+      newStatus, // Status berubah
     );
 
     if (mounted) {
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Berhasil ubah ke ${newVisibility == 'public' ? 'Public' : 'Private'}')),
+          SnackBar(content: Text('Berhasil diubah ke ${newStatus == 'published' ? 'Terbit' : 'Draft'}')),
         );
-        _loadPostDetails();
+        _loadPostDetails(); // Refresh data
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'])),
+          SnackBar(content: Text(result['message'] ?? 'Gagal mengubah status')),
         );
       }
     }
@@ -437,10 +439,10 @@ class _BlogPageState extends State<BlogPage> {
     String getAuthorName() => _post?['author']['name'] ?? 'Pengguna';
     String getLikes() => _post?['stats']['likes']?.toString() ?? '0';
     String getCommentsCount() => _post?['stats']['comments']?.toString() ?? '0';
-    String getDate() => _post?['published_at'] ?? 'Baru saja';
+    String getStatus() => _post?['status'] ?? 'published';
     String? getAuthorAvatar() => _post?['author']['avatar_url'];
 
-    final List tags = []; // Backend belum support tags
+    final List tags = []; 
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
@@ -519,7 +521,6 @@ class _BlogPageState extends State<BlogPage> {
                           final currentUserId = snapshot.data?['data']?['id'];
                           final authorId = _post?['author']?['id'];
                           
-                          // Don't show Follow button if viewing own post
                           if (currentUserId == authorId) {
                             return const SizedBox.shrink();
                           }

@@ -30,9 +30,9 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _selectedFilter = 'Public';
+  String _selectedFilter = 'Published'; // Default filter untuk Lembar
   static const int _currentNavIndex = 3;
-  
+
   Map<String, dynamic>? _userData;
 
   // Dynamic user data
@@ -77,7 +77,7 @@ class _ProfilePageState extends State<ProfilePage>
     // Init default path
     _bannerImagePath = _defaultBannerAsset;
     _profileImagePath = _defaultAvatarAsset;
-    
+
     _loadProfile();
     // _loadStories(); // Moved to _loadProfile
     _loadJilid();
@@ -93,22 +93,34 @@ class _ProfilePageState extends State<ProfilePage>
           _userData = data;
           _userName = data['name'] ?? '';
           if (_userName.isNotEmpty) {
-            _userInitials = _userName.trim().split(' ').map((l) => l[0]).take(2).join().toUpperCase();
+            _userInitials = _userName
+                .trim()
+                .split(' ')
+                .map((l) => l[0])
+                .take(2)
+                .join()
+                .toUpperCase();
           }
           _currentUsername = '@${data['username']}';
           _userBio = data['bio'] ?? 'Belum ada bio';
           _profileImagePath = data['avatar_url'];
           _bannerImagePath = data['banner_url'];
-          
+
           if (data['stats'] != null) {
-            _followers = data['stats']['followers_count'] ?? data['stats']['followers'] ?? 0;
-            _following = data['stats']['following_count'] ?? data['stats']['following'] ?? 0;
+            _followers =
+                data['stats']['followers_count'] ??
+                data['stats']['followers'] ??
+                0;
+            _following =
+                data['stats']['following_count'] ??
+                data['stats']['following'] ??
+                0;
           }
-          
+
           _userId = data['id']; // Set User ID
           _isLoadingProfile = false;
         });
-        
+
         // Load stories after we have the User ID
         _loadStories();
       }
@@ -128,28 +140,74 @@ class _ProfilePageState extends State<ProfilePage>
     _loadLikedPosts();
   }
 
+  // Update _loadStories (Hapus logika visibility)
   Future<void> _loadStories() async {
     if (_userId == null) return;
 
-    final posts = await _postService.getPosts(userId: _userId);
-    
-    final stories = posts.map((post) => {
-      'id': post['id'],
-      'title': post['title'] ?? 'Untitled',
-      'snippet': post['snippet'] ?? '',
-      'thumbnail': post['thumbnail_url'],
-      'date': _formatDate(post['published_at']),
-      'likes': post['stats']['likes']?.toString() ?? '0',
-      'comments': post['stats']['comments']?.toString() ?? '0',
-      'authorName': post['author']['name'] ?? 'Pengguna',
-      'status': post['status'] ?? 'published', // 'draft' or 'published'
-      'visibility': _mapVisibility(post['status'], post['visibility']), // Map to filter values
-    }).toList();
+    // Set loading state kecil jika perlu (opsional)
+    // Ambil status sesuai dropdown saat ini ('Published' -> 'published', 'Draft' -> 'draft')
+    final statusRequest = _selectedFilter.toLowerCase();
+
+    // Panggil API dengan parameter status
+    final posts = await _postService.getPosts(
+      userId: _userId,
+      status: statusRequest,
+    );
+
+    final stories = posts
+        .map(
+          (post) => {
+            'id': post['id'],
+            'title': post['title'] ?? 'Untitled',
+            'snippet': post['snippet'] ?? '',
+            'thumbnail': post['thumbnail_url'],
+            'date': _formatDate(post['published_at']),
+            'likes': post['stats']['likes']?.toString() ?? '0',
+            'comments': post['stats']['comments']?.toString() ?? '0',
+            'authorName': post['author']['name'] ?? 'Pengguna',
+            'status': post['status'] ?? 'published',
+            // --- TAMBAHKAN INI ---
+            'is_liked': post['is_liked'] ?? false,
+            // ---------------------
+            // --- TAMBAHKAN INI ---
+            'is_bookmarked': post['is_bookmarked'] ?? false,
+            // ---------------------
+          },
+        )
+        .toList();
 
     if (mounted) {
       setState(() {
         _stories = stories;
       });
+    }
+  }
+
+  Future<void> _toggleLikeInStories(Map<String, dynamic> story) async {
+    final isLiked = story['is_liked'] == true;
+    final currentLikes = int.tryParse(story['likes'].toString()) ?? 0;
+
+    // 1. Optimistic Update (Ubah UI duluan biar cepat)
+    setState(() {
+      story['is_liked'] = !isLiked;
+      story['likes'] = (isLiked ? currentLikes - 1 : currentLikes + 1)
+          .toString();
+    });
+
+    // 2. Panggil Server
+    final result = await _postService.toggleLike(story['id']);
+
+    // 3. Kalau Gagal, Balikin (Rollback)
+    if (!result['success']) {
+      setState(() {
+        story['is_liked'] = isLiked; // Balikin ke awal
+        story['likes'] = currentLikes.toString();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menyukai')));
+      }
     }
   }
 
@@ -163,17 +221,24 @@ class _ProfilePageState extends State<ProfilePage>
 
   Future<void> _loadLikedPosts() async {
     final posts = await _postService.getLikedPosts();
-    
-    final likedPosts = posts.map((post) => {
-      'id': post['id'],
-      'title': post['title'] ?? 'Untitled',
-      'snippet': post['snippet'] ?? '',
-      'thumbnail': post['thumbnail_url'],
-      'date': _formatDate(post['published_at']),
-      'likes': post['stats']['likes']?.toString() ?? '0',
-      'comments': post['stats']['comments']?.toString() ?? '0',
-      'authorName': post['author']['name'] ?? 'Pengguna',
-    }).toList();
+
+    final likedPosts = posts
+        .map(
+          (post) => {
+            'id': post['id'],
+            'title': post['title'] ?? 'Untitled',
+            'snippet': post['snippet'] ?? '',
+            'thumbnail': post['thumbnail_url'],
+            'date': _formatDate(post['published_at']),
+            'likes': post['stats']['likes']?.toString() ?? '0',
+            'comments': post['stats']['comments']?.toString() ?? '0',
+            'authorName': post['author']['name'] ?? 'Pengguna',
+            // --- TAMBAHKAN INI ---
+            'is_bookmarked': post['is_bookmarked'] ?? false,
+            // ---------------------
+          },
+        )
+        .toList();
 
     if (mounted) {
       setState(() {
@@ -212,12 +277,6 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  String _mapVisibility(String? status, String? visibility) {
-    if (status == 'draft') return 'Draft';
-    if (visibility == 'private') return 'Private';
-    return 'Public';
-  }
-
   // === FUNGSI PINTAR: DETEKSI TIPE GAMBAR ===
   ImageProvider _getSmartImage(String? path, String defaultAsset) {
     if (path == null || path.isEmpty) {
@@ -232,9 +291,9 @@ class _ProfilePageState extends State<ProfilePage>
     return FileImage(File(path));
   }
 
-  // --- LOGIC MENU & VISIBILITY (Sama seperti sebelumnya) ---
+  // Ganti _showStoryOptionMenu dengan ini:
   void _showStoryOptionMenu(BuildContext context, Map<String, dynamic> story) {
-    final currentVisibility = story['visibility'] ?? 'Public';
+    final status = story['status'] ?? 'published'; // Cek status
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -248,81 +307,55 @@ class _ProfilePageState extends State<ProfilePage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Dynamic menu based on visibility
-                if (currentVisibility == 'Public' || currentVisibility == 'Private') ...[
-                  _buildMenuItem(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit Lembar',
-                    color: _kTextColor,
-                    onTap: () {
-                      Navigator.pop(context);
-                      // Navigate to EditLembarPage
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditLembarPage(
-                            postId: int.tryParse(story['id'].toString()) ?? 0,
-                          ),
-                        ),
-                      ).then((_) => _refreshData());
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                // ... (Garis indikator sama)
 
-                if (currentVisibility == 'Public') ...[
+                // 1. Opsi Edit (Selalu ada)
+                _buildMenuItem(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit Lembar', // Masuk ke editor
+                  color: _kTextColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditLembarPage(
+                          postId: int.tryParse(story['id'].toString()) ?? 0,
+                        ),
+                      ),
+                    ).then((_) => _refreshData());
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // 2. Opsi Ubah Status (Toggle)
+                if (status == 'draft')
                   _buildMenuItem(
-                    icon: Icons.lock_outline_rounded,
-                    label: 'Ubah ke Private',
-                    color: Colors.blueAccent,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _changeVisibility(story, 'private');
-                    },
-                  ),
-                ] else if (currentVisibility == 'Private') ...[
-                  _buildMenuItem(
-                    icon: Icons.public_rounded,
-                    label: 'Ubah ke Public',
-                    color: Colors.blueAccent,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _changeVisibility(story, 'public');
-                    },
-                  ),
-                ] else if (currentVisibility == 'Draft') ...[
-                  _buildMenuItem(
-                    icon: Icons.public_rounded,
-                    label: 'Publish sebagai Public',
+                    icon: Icons.send_rounded, // Ikon publish
+                    label: 'Publikasi Sekarang',
                     color: Colors.green,
                     onTap: () {
                       Navigator.pop(context);
-                      _publishDraft(story, 'public');
+                      _updatePostStatus(
+                        story,
+                        'published',
+                      ); // Panggil fungsi baru
                     },
-                  ),
-                  const SizedBox(height: 12),
+                  )
+                else // Jika published
                   _buildMenuItem(
-                    icon: Icons.lock_outline_rounded,
-                    label: 'Publish sebagai Private',
-                    color: Colors.blue,
+                    icon: Icons.archive_outlined, // Ikon tarik ke draft
+                    label: 'Kembalikan ke Draft',
+                    color: Colors.orange,
                     onTap: () {
                       Navigator.pop(context);
-                      _publishDraft(story, 'private');
+                      _updatePostStatus(story, 'draft'); // Panggil fungsi baru
                     },
                   ),
-                ],
+
                 const SizedBox(height: 12),
+
+                // 3. Opsi Hapus (Selalu ada)
                 _buildMenuItem(
                   icon: Icons.delete_outline_rounded,
                   label: 'Hapus Cerita',
@@ -338,6 +371,48 @@ class _ProfilePageState extends State<ProfilePage>
         );
       },
     );
+  }
+
+  // Buat fungsi baru untuk handle perubahan status
+  Future<void> _updatePostStatus(
+    Map<String, dynamic> story,
+    String newStatus,
+  ) async {
+    final postId = story['id'];
+
+    // Feedback Loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Mengubah status ke $newStatus...'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
+    // Panggil API updatePost
+    // Pastikan PostService support update partial (hanya kirim status)
+    final result = await _postService.updatePost(
+      postId,
+      '', // Title kosong (tidak diubah)
+      '', // Content kosong
+      newStatus, // Status BARU
+      // visibility: null / dihapus parameternya jika PostService sudah disesuaikan
+    );
+
+    if (mounted) {
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Berhasil diubah ke $newStatus')),
+        );
+        _refreshData(); // Refresh list agar item pindah tab (Published <-> Draft)
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Gagal mengubah status'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showLikedOptionMenu(BuildContext context, Map<String, dynamic> blog) {
@@ -399,70 +474,6 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Future<void> _changeVisibility(Map<String, dynamic> story, String newVisibility) async {
-    final postId = story['id'];
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mengubah visibility...'), duration: Duration(seconds: 1)),
-      );
-    }
-
-    // Only send visibility - backend validation allows partial updates
-    final result = await _postService.updatePost(
-      postId,
-      '', // title not required for visibility change
-      '', // content not required for visibility change  
-      '', // status not required for visibility change
-      visibility: newVisibility,
-    );
-
-    if (mounted) {
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Berhasil ubah ke ${newVisibility == 'public' ? 'Public' : 'Private'}')),
-        );
-        _refreshData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Gagal mengubah visibility'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<void> _publishDraft(Map<String, dynamic> story, String visibility) async {
-    final postId = story['id'];
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mempublikasikan...'), duration: Duration(seconds: 1)),
-      );
-    }
-
-    // Only send status and visibility - backend allows partial updates
-    final result = await _postService.updatePost(
-      postId,
-      '', // title not required
-      '', // content not required
-      'published', // Change status to published
-      visibility: visibility,
-    );
-
-    if (mounted) {
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Berhasil publish sebagai ${visibility == 'public' ? 'Public' : 'Private'}')),
-        );
-        _refreshData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Gagal mempublikasikan'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
   Future<void> _confirmDeleteStory(Map<String, dynamic> story) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -499,7 +510,7 @@ class _ProfilePageState extends State<ProfilePage>
         }
       } else {
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Gagal menghapus cerita')),
           );
         }
@@ -544,15 +555,15 @@ class _ProfilePageState extends State<ProfilePage>
       if (success) {
         _loadJilid();
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Jilid berhasil dihapus')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Jilid berhasil dihapus')),
+          );
         }
       } else {
-         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Gagal menghapus jilid')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menghapus jilid')),
+          );
         }
       }
     }
@@ -562,9 +573,7 @@ class _ProfilePageState extends State<ProfilePage>
     // Navigate to Account Settings Page
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const AccountSettingsPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const AccountSettingsPage()),
     );
   }
 
@@ -635,10 +644,12 @@ class _ProfilePageState extends State<ProfilePage>
             : '@$newUsername';
         _userBio = result['bio'] ?? _userBio;
         _userId = result['id']; // Save ID
-        if (result['profilePath'] != null) _profileImagePath = result['profilePath'];
-        if (result['bannerPath'] != null) _bannerImagePath = result['bannerPath'];
+        if (result['profilePath'] != null)
+          _profileImagePath = result['profilePath'];
+        if (result['bannerPath'] != null)
+          _bannerImagePath = result['bannerPath'];
       });
-      _loadStories(); 
+      _loadStories();
     }
   }
 
@@ -654,55 +665,57 @@ class _ProfilePageState extends State<ProfilePage>
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
-      body: _isLoadingProfile 
+      body: _isLoadingProfile
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: NestedScrollView(
                 headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [_buildModernProfileHeader(context, textTheme)],
+                  return [
+                    SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          _buildModernProfileHeader(context, textTheme),
+                        ],
+                      ),
+                    ),
+                    SliverPersistentHeader(
+                      delegate: _SliverAppBarDelegate(
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: _kPurpleColor,
+                          unselectedLabelColor: _kSubTextColor,
+                          indicatorColor: _kPurpleColor,
+                          indicatorSize: TabBarIndicatorSize.label,
+                          indicatorWeight: 3,
+                          labelStyle: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                          unselectedLabelStyle: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                          ),
+                          tabs: const [
+                            Tab(text: 'Lembar'),
+                            Tab(text: 'Jilid'),
+                            Tab(text: 'Disukai'),
+                          ],
+                        ),
+                      ),
+                      pinned: true,
+                    ),
+                  ];
+                },
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildStoriesTab(textTheme),
+                    _buildJilidTab(textTheme),
+                    _buildLikesTab(textTheme),
+                  ],
                 ),
               ),
-              SliverPersistentHeader(
-                delegate: _SliverAppBarDelegate(
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: _kPurpleColor,
-                    unselectedLabelColor: _kSubTextColor,
-                    indicatorColor: _kPurpleColor,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    indicatorWeight: 3,
-                    labelStyle: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                    unselectedLabelStyle: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
-                    ),
-                    tabs: const [
-                      Tab(text: 'Lembar'),
-                      Tab(text: 'Jilid'),
-                      Tab(text: 'Disukai'),
-                    ],
-                  ),
-                ),
-                pinned: true,
-              ),
-            ];
-          },
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildStoriesTab(textTheme),
-              _buildJilidTab(textTheme),
-              _buildLikesTab(textTheme),
-            ],
-          ),
-        ),
-      ),
+            ),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentNavIndex,
         onTap: (index) {
@@ -805,7 +818,10 @@ class _ProfilePageState extends State<ProfilePage>
                 child: CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.grey.shade200,
-                  backgroundImage: _getSmartImage(_profileImagePath, _defaultAvatarAsset),
+                  backgroundImage: _getSmartImage(
+                    _profileImagePath,
+                    _defaultAvatarAsset,
+                  ),
                 ),
               ),
             ),
@@ -818,14 +834,14 @@ class _ProfilePageState extends State<ProfilePage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _userName, 
+                _userName,
                 style: textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: _kTextColor,
                 ),
               ),
               Text(
-                _currentUsername, 
+                _currentUsername,
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: _kSubTextColor,
@@ -901,11 +917,11 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   Widget _buildStoriesTab(TextTheme textTheme) {
-    // Filter stories based on selected filter
-    final filteredStories = _stories.where((story) {
-      final visibility = story['visibility'] ?? 'Public';
-      return visibility == _selectedFilter;
-    }).toList();
+    // HAPUS variable 'filteredStories' yang lama.
+    // Gunakan langsung '_stories' karena isinya sudah pasti sesuai dropdown.
+
+    final displayStories = _stories; // Pakai ini langsung
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
       children: [
@@ -914,16 +930,7 @@ class _ProfilePageState extends State<ProfilePage>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                // ... (decoration sama)
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -938,15 +945,25 @@ class _ProfilePageState extends State<ProfilePage>
                     color: _kPurpleColor,
                     fontWeight: FontWeight.w600,
                   ),
-                  items: ['Public', 'Private', 'Draft'].map((String value) {
+                  // UPDATE ITEM DROPDOWN DI SINI:
+                  items: ['Published', 'Draft'].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
-                      child: Text(value),
+                      child: Text(
+                        value == 'Published' ? 'Terbit' : 'Draf',
+                      ), // Label UI bahasa Indo
                     );
                   }).toList(),
+                  // ... kode DropdownButton sebelumnya ...
                   onChanged: (newValue) {
-                    if (newValue != null)
-                      setState(() => _selectedFilter = newValue);
+                    if (newValue != null && newValue != _selectedFilter) {
+                      setState(() {
+                        _selectedFilter = newValue;
+                        _stories =
+                            []; // Kosongkan list sementara biar user tau sedang loading
+                      });
+                      _loadStories(); // <--- PENTING: Request ulang ke server
+                    }
                   },
                 ),
               ),
@@ -954,7 +971,8 @@ class _ProfilePageState extends State<ProfilePage>
           ],
         ),
         const SizedBox(height: 16),
-        if (filteredStories.isEmpty)
+        // Gunakan displayStories
+        if (displayStories.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
             child: Center(
@@ -965,13 +983,74 @@ class _ProfilePageState extends State<ProfilePage>
             ),
           )
         else
-          ...filteredStories
+          ...displayStories // Gunakan displayStories
               .map(
                 (story) => _buildModernContentCard(
                   story,
                   textTheme,
                   onMenuTap: () => _showStoryOptionMenu(context, story),
                   isLikedTab: false,
+
+                  // --- PERBAIKAN: KIRIM DATA LIKE ---
+                  isLiked: story['is_liked'] ?? false,
+                  likeCount: int.tryParse(story['likes'].toString()) ?? 0,
+                  onLikeTap: () {
+                    _toggleLikeInStories(story);
+                  },
+                  // ---------------------------------
+
+                  // --- TAMBAHKAN LOGIKA BOOKMARK ---
+                  isBookmarked: story['is_bookmarked'] ?? false,
+                  // ... di dalam _buildStoriesTab ...
+                  onBookmarkTap: () async {
+                    final isBookmarked = story['is_bookmarked'] == true;
+
+                    // 1. Ubah UI duluan (Optimistic)
+                    setState(() {
+                      story['is_bookmarked'] = !isBookmarked;
+                    });
+
+                    // 2. Panggil Server
+                    bool success;
+                    if (!isBookmarked) {
+                      // Kalau awalnya belum ada -> Tambah
+                      success = await _postService.addBookmark(story['id']);
+                    } else {
+                      // Kalau awalnya ada -> Hapus
+                      success = await _postService.removeBookmark(story['id']);
+                    }
+
+                    // 3. Cek Hasil & Tampilkan Notifikasi (SnackBar)
+                    if (success) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              !isBookmarked
+                                  ? "Disimpan ke Markah"
+                                  : "Dihapus dari Markah",
+                            ),
+                            duration: const Duration(
+                              seconds: 1,
+                            ), // Muncul 1 detik aja biar gak ganggu
+                          ),
+                        );
+                      }
+                    } else {
+                      // Kalau Gagal -> Balikin UI & Info Error
+                      setState(() {
+                        story['is_bookmarked'] = isBookmarked;
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Gagal mengubah markah"),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  // ...
                 ),
               )
               .toList(),
@@ -979,42 +1058,89 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-Widget _buildLikesTab(TextTheme textTheme) {
-  if (_likedBlogs.isEmpty) {
-    return const Center(
-      child: Text('Belum ada yang disukai', style: TextStyle(color: Colors.grey)),
+  Widget _buildLikesTab(TextTheme textTheme) {
+    if (_likedBlogs.isEmpty) {
+      return const Center(
+        child: Text(
+          'Belum ada yang disukai',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
+      itemCount: _likedBlogs.length,
+      itemBuilder: (context, index) {
+        final blog = _likedBlogs[index];
+
+        return _buildModernContentCard(
+          blog,
+          textTheme,
+          onMenuTap: () => _showLikedOptionMenu(context, blog),
+          isLikedTab: true,
+
+          // --- HAPUS BARIS YANG SALAH TADI, GANTI JADI INI: ---
+
+          // 1. Kirim status (True karena di tab disukai)
+          isLiked: true,
+
+          // 2. Kirim jumlah like
+          likeCount: int.tryParse(blog['likes'].toString()) ?? 0,
+
+          // 3. Kirim fungsi apa yang terjadi kalau dipencet
+          onLikeTap: () async {
+            // Pastikan fungsi _toggleLikeAndRemove sudah kamu buat di bawah ya
+            await _toggleLikeAndRemove(blog['id'], index);
+          },
+          // --- TAMBAHKAN LOGIKA BOOKMARK ---
+          isBookmarked: blog['is_bookmarked'] ?? false,
+          // ... di dalam _buildLikesTab ...
+          onBookmarkTap: () async {
+            final isBookmarked = blog['is_bookmarked'] == true;
+
+            setState(() {
+              blog['is_bookmarked'] = !isBookmarked;
+            });
+
+            bool success;
+            if (!isBookmarked) {
+              success = await _postService.addBookmark(blog['id']);
+            } else {
+              success = await _postService.removeBookmark(blog['id']);
+            }
+
+            if (success) {
+              // --- INI BAGIAN NOTIFIKASINYA ---
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      !isBookmarked
+                          ? "Disimpan ke Markah"
+                          : "Dihapus dari Markah",
+                    ),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              }
+              // --------------------------------
+            } else {
+              setState(() {
+                blog['is_bookmarked'] = isBookmarked;
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Gagal mengubah markah")),
+                );
+              }
+            }
+          },
+          // ...
+        );
+      },
     );
   }
-  
-  return ListView.builder(
-    padding: const EdgeInsets.fromLTRB(16, 20, 16, 80),
-    itemCount: _likedBlogs.length,
-    itemBuilder: (context, index) {
-      final blog = _likedBlogs[index];
-      
-      return _buildModernContentCard(
-        blog,
-        textTheme,
-        onMenuTap: () => _showLikedOptionMenu(context, blog),
-        isLikedTab: true,
-
-        // --- HAPUS BARIS YANG SALAH TADI, GANTI JADI INI: ---
-        
-        // 1. Kirim status (True karena di tab disukai)
-        isLiked: true, 
-        
-        // 2. Kirim jumlah like
-        likeCount: int.tryParse(blog['likes'].toString()) ?? 0,
-
-        // 3. Kirim fungsi apa yang terjadi kalau dipencet
-        onLikeTap: () async {
-           // Pastikan fungsi _toggleLikeAndRemove sudah kamu buat di bawah ya
-           await _toggleLikeAndRemove(blog['id'], index); 
-        },
-      );
-    },
-  );
-}
 
   // Buat fungsi pembantu biar rapi
   Future<void> _toggleLikeAndRemove(int postId, int index) async {
@@ -1027,254 +1153,277 @@ Widget _buildLikesTab(TextTheme textTheme) {
         setState(() {
           _likedBlogs.removeAt(index);
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Dihapus dari daftar suka"), 
-            duration: Duration(seconds: 1)
+            content: Text("Dihapus dari daftar suka"),
+            duration: Duration(seconds: 1),
           ),
         );
       }
     } else {
-       // Error handling
-       print("Gagal unlike: ${result['message']}");
+      // Error handling
+      print("Gagal unlike: ${result['message']}");
     }
   }
 
-Widget _buildModernContentCard(
-  Map<String, dynamic> item,
-  TextTheme textTheme, {
-  required VoidCallback onMenuTap,
-  bool isLikedTab = false,
-  
-  // --- [BARU] Tambahan Parameter ---
-  bool isLiked = false,
-  int likeCount = 0,
-  VoidCallback? onLikeTap,
-  // --------------------------------
-}) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.04),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+  Widget _buildModernContentCard(
+    Map<String, dynamic> item,
+    TextTheme textTheme, {
+    required VoidCallback onMenuTap,
+    bool isLikedTab = false,
+
+    // --- [BARU] Tambahan Parameter ---
+    bool isLiked = false,
+    int likeCount = 0,
+    VoidCallback? onLikeTap,
+    // --------------------------------
+
+    // --- TAMBAHKAN PARAMETER INI ---
+    bool isBookmarked = false,
+    VoidCallback? onBookmarkTap,
+
+    // -------------------------------
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          // Check if post is draft - redirect to editor instead of BlogPage
-          final isDraft = item['visibility'] == 'Draft';
-          
-          if (isDraft) {
-            // Navigate to edit page for draft posts
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          // Di dalam _buildModernContentCard
+          onTap: () {
+            // LOGIKA LAMA DIHAPUS, GANTI JADI INI:
+            // Baik Draft maupun Published, semua masuk ke BlogPage.
+            // Nanti di dalam BlogPage, kamu bisa cek jika user == author, tampilkan tombol Edit.
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => EditLembarPage(
-                  postId: int.tryParse(item['id'].toString()) ?? 0,
-                ),
-              ),
-            ).then((_) => _refreshData()); // Refresh after editing
-          } else {
-            // Navigate to BlogPage for published posts
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BlogPage(
-                  postId: int.tryParse(item['id'].toString()) ?? 0,
-                ),
+                builder: (context) =>
+                    BlogPage(postId: int.tryParse(item['id'].toString()) ?? 0),
               ),
             );
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        // AVATAR KECIL DI CARD
-                        CircleAvatar(
-                          radius: 10,
-                          backgroundColor: Colors.grey.shade300,
-                          backgroundImage: _getSmartImage(null, _defaultAvatarAsset),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          item['authorName'] ?? 'Pengguna',
-                          style: textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _kTextColor,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          item['date'] ?? '',
-                          style: textTheme.labelSmall?.copyWith(
-                            color: _kSubTextColor,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // Title with Visibility Badge
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item['title']?.toString() ?? 'Tanpa Judul',
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: _kTextColor,
-                              fontSize: 16,
-                              height: 1.2,
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // AVATAR KECIL DI CARD
+                          CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.grey.shade300,
+                            backgroundImage: _getSmartImage(
+                              null,
+                              _defaultAvatarAsset,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        if (item['visibility'] != null && !isLikedTab) ...[
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: item['visibility'] == 'Draft' 
-                                  ? Colors.orange.withOpacity(0.1)
-                                  : _kPurpleColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: item['visibility'] == 'Draft' 
-                                    ? Colors.orange
-                                    : _kPurpleColor,
-                                width: 1,
-                              ),
+                          Text(
+                            item['authorName'] ?? 'Pengguna',
+                            style: textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: _kTextColor,
                             ),
-                            child: Text(
-                              item['visibility'],
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: item['visibility'] == 'Draft' 
-                                    ? Colors.orange
-                                    : _kPurpleColor,
-                              ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            item['date'] ?? '',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: _kSubTextColor,
+                              fontSize: 10,
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item['snippet'] ?. toString()?? '',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: _kSubTextColor,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        // --- [BARU] Logic Tombol Like ---
-                        InkWell(
-                          onTap: onLikeTap, // Fungsi yang dikirim dari ListView
-                          borderRadius: BorderRadius.circular(20),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0), // Padding biar enak dipencet
-                            child: Row(
-                              children: [
-                                Icon(
-                                  // Gunakan variabel isLiked, bukan isLikedTab lagi
-                                  isLiked
-                                      ? Icons.favorite
-                                      : Icons.favorite_border_rounded,
-                                  size: 16,
-                                  // Warna merah kalau dilike
-                                  color: isLiked ? Colors.red : _kSubTextColor,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  // Gunakan variabel likeCount agar update realtime
-                                  likeCount.toString(),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _kSubTextColor,
-                                  ),
-                                ),
-                              ],
+                      const SizedBox(height: 6),
+                      // Title with Visibility Badge
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item['title']?.toString() ?? 'Tanpa Judul',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: _kTextColor,
+                                fontSize: 16,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                        // --------------------------------
-
-                        const SizedBox(width: 16),
-                        Icon(
-                          Icons.mode_comment_outlined,
-                          size: 16,
+                          if (item['visibility'] != null && !isLikedTab) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: item['visibility'] == 'Draft'
+                                    ? Colors.orange.withOpacity(0.1)
+                                    : _kPurpleColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: item['visibility'] == 'Draft'
+                                      ? Colors.orange
+                                      : _kPurpleColor,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                item['visibility'],
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: item['visibility'] == 'Draft'
+                                      ? Colors.orange
+                                      : _kPurpleColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item['snippet'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 13,
                           color: _kSubTextColor,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item['comments'] ?? '0',
-                          style: const TextStyle(
-                            fontSize: 12,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          // --- [BARU] Logic Tombol Like ---
+                          InkWell(
+                            onTap:
+                                onLikeTap, // Fungsi yang dikirim dari ListView
+                            borderRadius: BorderRadius.circular(20),
+                            child: Padding(
+                              padding: const EdgeInsets.all(
+                                4.0,
+                              ), // Padding biar enak dipencet
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    // Gunakan variabel isLiked, bukan isLikedTab lagi
+                                    isLiked
+                                        ? Icons.favorite
+                                        : Icons.favorite_border_rounded,
+                                    size: 16,
+                                    // Warna merah kalau dilike
+                                    color: isLiked
+                                        ? Colors.red
+                                        : _kSubTextColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    // Gunakan variabel likeCount agar update realtime
+                                    likeCount.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: _kSubTextColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // --------------------------------
+                          const SizedBox(width: 16),
+                          Icon(
+                            Icons.mode_comment_outlined,
+                            size: 16,
                             color: _kSubTextColor,
                           ),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: onMenuTap,
-                          child: const Icon(
-                            Icons.more_horiz,
-                            size: 20,
-                            color: _kSubTextColor,
+                          const SizedBox(width: 4),
+                          Text(
+                            item['comments'] ?? '0',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _kSubTextColor,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const Spacer(),
+
+                          // --- TAMBAHKAN TOMBOL BOOKMARK DI SINI ---
+                          GestureDetector(
+                            onTap: onBookmarkTap,
+                            child: Icon(
+                              isBookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border_rounded,
+                              size: 20,
+                              color: isBookmarked
+                                  ? _kPurpleColor
+                                  : _kSubTextColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // -----------------------------------------
+                          GestureDetector(
+                            onTap: onMenuTap,
+                            child: const Icon(
+                              Icons.more_horiz,
+                              size: 20,
+                              color: _kSubTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey[100],
-                    // THUMBNAIL (Pakai _getSmartImage)
-                    image: DecorationImage(
-                      image: _getSmartImage(item['thumbnail'], _defaultThumbAsset),
-                      fit: BoxFit.cover,
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey[100],
+                      // THUMBNAIL (Pakai _getSmartImage)
+                      image: DecorationImage(
+                        image: _getSmartImage(
+                          item['thumbnail'],
+                          _defaultThumbAsset,
+                        ),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildJilidTab(TextTheme textTheme) {
     if (_jilid.isEmpty) {
@@ -1337,7 +1486,10 @@ Widget _buildModernContentCard(
                     // Hanya pakai gambar jika datanya ADA
                     image: jilid['thumbnail'] != null
                         ? DecorationImage(
-                            image: _getSmartImage(jilid['thumbnail'], ''), // Default string kosong karena dihandle di bawah
+                            image: _getSmartImage(
+                              jilid['thumbnail'],
+                              '',
+                            ), // Default string kosong karena dihandle di bawah
                             fit: BoxFit.cover,
                           )
                         : null,

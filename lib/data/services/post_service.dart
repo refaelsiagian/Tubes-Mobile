@@ -2,28 +2,42 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'auth_service.dart'; // Pastikan file ini ada
+import 'auth_service.dart';
 
 class PostService {
-  // Mengambil URL dari AuthService sesuai permintaan
   static const String baseUrl = AuthService.baseUrl;
 
-  // Helper untuk ambil token biar kodingan lebih bersih
+  // --- HELPER: Ambil Token (Biar kode lebih bersih & tidak berulang) ---
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  Future<List<Map<String, dynamic>>> getPosts({int? userId, String? search}) async {
+  // --- GET POSTS (Dengan Filter Status) ---
+  Future<List<Map<String, dynamic>>> getPosts({
+    int? userId,
+    String? search,
+    String? status, // Fitur Penting untuk Draft/Published
+  }) async {
     try {
       final token = await _getToken();
       String url = '$baseUrl/posts';
       List<String> queryParams = [];
-      
-      if (userId != null) queryParams.add('user_id=$userId');
-      if (search != null && search.isNotEmpty) queryParams.add('search=$search');
-      
-      if (queryParams.isNotEmpty) url += '?${queryParams.join('&')}';
+
+      if (userId != null) {
+        queryParams.add('user_id=$userId');
+      }
+      if (search != null && search.isNotEmpty) {
+        queryParams.add('search=$search');
+      }
+      // Parameter status (Penting!)
+      if (status != null && status.isNotEmpty) {
+        queryParams.add('status=$status');
+      }
+
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
+      }
 
       final response = await http.get(
         Uri.parse(url),
@@ -37,8 +51,9 @@ class PostService {
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body)['data'];
         return List<Map<String, dynamic>>.from(data);
+      } else {
+        return [];
       }
-      return [];
     } catch (e) {
       return [];
     }
@@ -57,12 +72,10 @@ class PostService {
       );
 
       if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'data': jsonDecode(response.body)['data'],
-        };
+        return {'success': true, 'data': jsonDecode(response.body)['data']};
+      } else {
+        return {'success': false, 'message': 'Gagal memuat lembar'};
       }
-      return {'success': false, 'message': 'Gagal memuat lembar'};
     } catch (e) {
       return {'success': false, 'message': 'Koneksi error: $e'};
     }
@@ -81,12 +94,10 @@ class PostService {
       );
 
       if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'data': jsonDecode(response.body)['data'],
-        };
+        return {'success': true, 'data': jsonDecode(response.body)['data']};
+      } else {
+        return {'success': false, 'message': 'Gagal memuat komentar'};
       }
-      return {'success': false, 'message': 'Gagal memuat komentar'};
     } catch (e) {
       return {'success': false, 'message': 'Koneksi error: $e'};
     }
@@ -95,7 +106,9 @@ class PostService {
   Future<Map<String, dynamic>> postComment(int postId, String content) async {
     try {
       final token = await _getToken();
-      if (token == null) return {'success': false, 'message': 'Silakan login terlebih dahulu'};
+      if (token == null) {
+        return {'success': false, 'message': 'Silakan login terlebih dahulu'};
+      }
 
       final response = await http.post(
         Uri.parse('$baseUrl/posts/$postId/comments'),
@@ -108,22 +121,21 @@ class PostService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return {
-          'success': true,
-          'data': jsonDecode(response.body)['data'],
-        };
+        return {'success': true, 'data': jsonDecode(response.body)['data']};
+      } else {
+        return {'success': false, 'message': 'Gagal mengirim komentar'};
       }
-      return {'success': false, 'message': 'Gagal mengirim komentar'};
     } catch (e) {
       return {'success': false, 'message': 'Koneksi error: $e'};
     }
   }
 
-  // === FITUR LIKE ===
   Future<Map<String, dynamic>> toggleLike(int postId) async {
     try {
       final token = await _getToken();
-      if (token == null) return {'success': false, 'message': 'Silakan login'};
+      if (token == null) {
+        return {'success': false, 'message': 'Silakan login'};
+      }
 
       final response = await http.post(
         Uri.parse('$baseUrl/posts/$postId/like'),
@@ -135,19 +147,27 @@ class PostService {
       );
 
       if (response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)};
+      } else {
         return {
-          'success': true,
-          'data': jsonDecode(response.body),
+          'success': false,
+          'message': 'Gagal menyukai lembar: ${response.statusCode}',
         };
       }
-      return {'success': false, 'message': 'Gagal menyukai post'};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      print('❌ toggleLike error: $e');
+      return {'success': false, 'message': 'Koneksi error: $e'};
     }
   }
 
-  // === CREATE POST ===
-  Future<Map<String, dynamic>> createPost(String title, String content, String status, {String? snippet, String? visibility, File? thumbnail}) async {
+  // --- CREATE POST (Tanpa Visibility, Ada Status) ---
+  Future<Map<String, dynamic>> createPost(
+    String title,
+    String content,
+    String status, {
+    String? snippet,
+    File? thumbnail,
+  }) async {
     final token = await _getToken();
     final url = Uri.parse('$baseUrl/posts');
 
@@ -162,60 +182,74 @@ class PostService {
       request.fields['content'] = content;
       request.fields['status'] = status;
       if (snippet != null) request.fields['snippet'] = snippet;
-      request.fields['visibility'] = visibility ?? 'public';
 
       if (thumbnail != null) {
-        request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+        request.files.add(
+          await http.MultipartFile.fromPath('thumbnail', thumbnail.path),
+        );
       }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)['data']};
+      } else {
         return {
-          'success': true,
-          'data': jsonDecode(response.body)['data'],
+          'success': false,
+          'message': 'Gagal membuat postingan: ${response.statusCode}',
         };
       }
-      return {'success': false, 'message': 'Gagal membuat postingan'};
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
 
-  // === UPDATE POST ===
-  Future<Map<String, dynamic>> updatePost(int id, String title, String content, String status, {String? snippet, String? visibility, File? thumbnail}) async {
+  // --- UPDATE POST (Tanpa Visibility, Ada Status) ---
+  Future<Map<String, dynamic>> updatePost(
+    int id,
+    String? title,
+    String? content,
+    String? status, {
+    String? snippet,
+    File? thumbnail,
+  }) async {
     final token = await _getToken();
     final url = Uri.parse('$baseUrl/posts/$id');
-    
+
     try {
-      var request = http.MultipartRequest('POST', url); 
+      var request = http.MultipartRequest('POST', url);
       request.headers.addAll({
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       });
 
       request.fields['_method'] = 'PUT'; // Laravel spoofing
-      request.fields['title'] = title;
-      request.fields['content'] = content;
-      request.fields['status'] = status;
+
+      if (title != null) request.fields['title'] = title;
+      if (content != null) request.fields['content'] = content;
+      if (status != null) request.fields['status'] = status;
       if (snippet != null) request.fields['snippet'] = snippet;
-      if (visibility != null) request.fields['visibility'] = visibility;
 
       if (thumbnail != null) {
-        request.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+        request.files.add(
+          await http.MultipartFile.fromPath('thumbnail', thumbnail.path),
+        );
       }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
+        return {'success': true, 'data': jsonDecode(response.body)['data']};
+      } else {
+        print('❌ Update Post Error: ${response.statusCode}');
+        print('Response body: ${response.body}');
         return {
-          'success': true,
-          'data': jsonDecode(response.body)['data'],
+          'success': false,
+          'message': 'Gagal memperbarui postingan: ${response.statusCode}',
         };
       }
-      return {'success': false, 'message': 'Gagal update postingan'};
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
     }
@@ -267,14 +301,14 @@ class PostService {
     final token = await _getToken();
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/me/likes'), 
+        Uri.parse('$baseUrl/me/likes'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body)['data'];
         return List<Map<String, dynamic>>.from(data);
@@ -285,11 +319,9 @@ class PostService {
     }
   }
 
-  // === BAGIAN UTAMA YANG DIUBAH (BOOKMARK) ===
+  // === FITUR BOOKMARK YANG DIPERBAIKI ===
 
-  // 1. Get Bookmarks (Tetap sama)
-// GANTI FUNGSI getBookmarks DENGAN INI BUAT CEK ERROR
-// Update fungsi getBookmarks di PostService
+  // 1. Ambil List Bookmark
   Future<List<Map<String, dynamic>>> getBookmarks() async {
     final token = await _getToken();
     try {
@@ -304,8 +336,6 @@ class PostService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-        
-        // Jaga-jaga kalau backend kirim null atau format beda
         if (jsonResponse['data'] != null) {
            final List data = jsonResponse['data'];
            return List<Map<String, dynamic>>.from(data);
@@ -318,19 +348,17 @@ class PostService {
     }
   }
 
-  // 2. LOGIC BARU: TOGGLE BOOKMARK (SATU PINTU)
-  // Ini fungsi inti yang akan dipanggil oleh add/remove
+  // 2. Toggle Bookmark (Fungsi Inti)
   Future<Map<String, dynamic>> toggleBookmark(int postId) async {
     final token = await _getToken();
     try {
       print('🔄 toggleBookmark: Sending request for post $postId');
       
-      // Endpoint ini mengarah ke BookmarkController@toggle di Backend
       final response = await http.post(
         Uri.parse('$baseUrl/posts/$postId/bookmark'),
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json', // Penting
+          'Accept': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
@@ -352,8 +380,7 @@ class PostService {
     }
   }
 
-  // 3. WRAPPERS (Biar UI lama kamu tidak error)
-  // Kedua fungsi ini sekarang cuma "numpang" panggil toggleBookmark
+  // 3. Wrapper (Agar tidak merusak kode UI yang lama)
   Future<bool> addBookmark(int postId) async {
     final result = await toggleBookmark(postId);
     return result['success'] == true;
