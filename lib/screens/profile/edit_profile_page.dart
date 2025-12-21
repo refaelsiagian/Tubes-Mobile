@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/utils/permission_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; 
 import '../../data/services/auth_service.dart';
+import 'dart:async';
 
 // Konstanta Warna
 const Color _kTextColor = Color(0xFF1A1A1A);
@@ -79,6 +81,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // === LOGIC 1: AMBIL FOTO DARI GALERI ===
   Future<void> _pickImage({required bool isProfile}) async {
+    final hasPermission = await PermissionHelper.checkGalleryPermission(context);
+    if (!hasPermission) return;
+
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
       source: ImageSource.gallery,

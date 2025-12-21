@@ -1,6 +1,7 @@
 import 'dart:io'; // Tambahkan import dart:io untuk File
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/utils/permission_helper.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -207,6 +208,9 @@ class _EditLembarPageState extends State<EditLembarPage> {
   Future<void> _pickAndInsertImage() async {
     _focusNode.unfocus();
 
+    final hasPermission = await PermissionHelper.checkGalleryPermission(context);
+    if (!hasPermission) return;
+  
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
 

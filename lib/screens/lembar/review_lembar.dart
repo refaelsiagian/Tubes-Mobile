@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/utils/permission_helper.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -69,6 +70,9 @@ class _ReviewLembarPageState extends State<ReviewLembarPage> {
   }
 
   Future<void> _pickCoverImage() async {
+    final hasPermission = await PermissionHelper.checkGalleryPermission(context);
+    if (!hasPermission) return;
+
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
